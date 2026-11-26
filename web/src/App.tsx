@@ -1,7 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { COPY } from './i18n';
+import {
+  appendCdcBatch,
+  buildLakehouseSnapshotPayload,
+  DEFAULT_CDC_TELEMETRY,
+  generateCdcBatch,
+  nextCdcTelemetry,
+} from './engine/cdcStream';
 import { generateColumnarTransactions } from './engine/dataGenerator';
 import { NexusDuckDbEngine } from './engine/duckdbEngine';
+import { recordQueryHistory, togglePinHistoryEntry } from './engine/queryHistory';
 import { SQL_PRESETS } from './engine/sqlPresets';
 import {
   clearAllLocalStorage,
@@ -16,10 +24,14 @@ import {
 } from './engine/storageIdb';
 import { LocalSemanticVectorIndex } from './engine/vectorIndex';
 import type {
+  BrushSelectionBounds,
+  CdcTelemetryState,
   ColumnarTransactions,
   EngineBackend,
   GenerativeWidget,
   Locale,
+  QueryHistoryEntry,
+  QueryHistorySource,
   SavedNotebook,
   SqlQueryResult,
   StorageTelemetry,
@@ -31,12 +43,14 @@ import { TopBar } from './components/TopBar';
 import { SidebarCatalog } from './components/SidebarCatalog';
 import { SqlWorkbench } from './components/SqlWorkbench';
 import { WebGpuAnomalyCanvas } from './components/WebGpuAnomalyCanvas';
+import { CdcLiveStrip } from './components/CdcLiveStrip';
 import { AguiCopilotDock } from './components/AguiCopilotDock';
 import { CrdtMultiplayerLab } from './components/CrdtMultiplayerLab';
 import { ArchitectureInspector } from './components/ArchitectureInspector';
 import { CommandPalette } from './components/CommandPalette';
 
 const INITIAL_ROWS = 100_000;
+const CDC_TICK_MS = 900;
 
 export function App() {
   const [theme, setTheme] = useState<ThemeMode>('dark');
@@ -55,6 +69,12 @@ export function App() {
   const [sql, setSql] = useState<string>(SQL_PRESETS[0].sql);
   const [isRunningSql, setIsRunningSql] = useState<boolean>(false);
   const [queryResult, setQueryResult] = useState<SqlQueryResult | null>(null);
+  const [rawExplainText, setRawExplainText] = useState<string | null>(null);
+  const [queryHistory, setQueryHistory] = useState<QueryHistoryEntry[]>([]);
+  const [activeBrushBounds, setActiveBrushBounds] = useState<BrushSelectionBounds | null>(null);
+
+  // v2.0 Live Kafka CDC Streaming state
+  const [cdcTelemetry, setCdcTelemetry] = useState<CdcTelemetryState>(DEFAULT_CDC_TELEMETRY);
 
   const [notebooks, setNotebooks] = useState<SavedNotebook[]>([]);
   const [pinnedWidgets, setPinnedWidgets] = useState<GenerativeWidget[]>([]);
@@ -68,6 +88,12 @@ export function App() {
   });
 
   const engineRef = useRef<NexusDuckDbEngine | null>(null);
+  const datasetRef = useRef<ColumnarTransactions>(dataset);
+  datasetRef.current = dataset;
+  const cdcSeqRef = useRef<number>(INITIAL_ROWS);
+  const cdcBatchIdxRef = useRef<number>(0);
+  const cdcInFlightRef = useRef<boolean>(false);
+
   const copy = COPY[locale];
 
   const vectorIndex = useMemo(() => {
@@ -100,12 +126,31 @@ export function App() {
   }, []);
 
   const handleRunSql = useCallback(
-    async (sqlOverride?: string) => {
+    async (sqlOverride?: string, source: QueryHistorySource = 'manual') => {
       const target = sqlOverride ?? sql;
       setIsRunningSql(true);
       try {
         const res = await executeSql(target);
         setQueryResult(res);
+        setQueryHistory((prev) =>
+          recordQueryHistory(prev, {
+            sql: target,
+            executedAt: new Date().toISOString(),
+            executionMs: res.executionMs,
+            rowCount: res.rowCount,
+            scannedRows: res.scannedRows,
+            engine: res.engine,
+            source,
+            error: res.error,
+          }),
+        );
+        const engine = engineRef.current;
+        if (engine && !res.error) {
+          const explain = await engine.explainSql(target);
+          setRawExplainText(explain);
+        } else {
+          setRawExplainText(null);
+        }
       } finally {
         setIsRunningSql(false);
       }
@@ -134,9 +179,24 @@ export function App() {
       setPinnedWidgets(savedWidgets);
       await refreshStorage();
 
-      const firstRes = await engine.executeSql(SQL_PRESETS[0].sql);
+      const firstSql = SQL_PRESETS[0].sql;
+      const firstRes = await engine.executeSql(firstSql);
+      const firstExplain = await engine.explainSql(firstSql);
       if (!active) return;
       setQueryResult(firstRes);
+      setRawExplainText(firstExplain);
+      setQueryHistory((prev) =>
+        recordQueryHistory(prev, {
+          sql: firstSql,
+          executedAt: new Date().toISOString(),
+          executionMs: firstRes.executionMs,
+          rowCount: firstRes.rowCount,
+          scannedRows: firstRes.scannedRows,
+          engine: firstRes.engine,
+          source: 'preset',
+          error: firstRes.error,
+        }),
+      );
       setIsLoadingScale(false);
     };
 
@@ -150,6 +210,61 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Live Streaming CDC Mode (+5,000 tx/sec simulated Kafka ingest every 900ms)
+  useEffect(() => {
+    if (!cdcTelemetry.isStreaming || isLoadingScale) return;
+
+    let cancelled = false;
+
+    const runCdcTick = async () => {
+      if (cancelled || cdcInFlightRef.current) return;
+      const engine = engineRef.current;
+      if (!engine) return;
+
+      cdcInFlightRef.current = true;
+      try {
+        cdcBatchIdxRef.current += 1;
+        // ~4,500 tx per 900ms = ~5,000 tx/sec with realistic jitter (4,350..5,550 tx/s)
+        const jitter = ((cdcBatchIdxRef.current * 373) % 900) - 450;
+        const batchSize = Math.max(3900, 4500 + jitter);
+        const generated = generateCdcBatch(
+          batchSize,
+          cdcSeqRef.current,
+          cdcBatchIdxRef.current,
+          Date.now(),
+          CDC_TICK_MS,
+        );
+        cdcSeqRef.current += batchSize;
+
+        const nextDataset = appendCdcBatch(datasetRef.current, generated.batch, 500_000);
+        const ingestMs = await engine.appendTransactionsBatch(generated.batch, nextDataset);
+        if (cancelled) return;
+
+        datasetRef.current = nextDataset;
+        setDataset(nextDataset);
+        setTables(engine.getTables());
+        setCdcTelemetry((prev) =>
+          prev.isStreaming ? nextCdcTelemetry(prev, generated, ingestMs) : prev,
+        );
+      } catch (err) {
+        console.warn('[NexusLake] CDC batch skipped:', err);
+      } finally {
+        cdcInFlightRef.current = false;
+      }
+    };
+
+    // Trigger immediate first batch on activation for snappy responsiveness
+    void runCdcTick();
+    const timer = window.setInterval(() => {
+      void runCdcTick();
+    }, CDC_TICK_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [cdcTelemetry.isStreaming, isLoadingScale]);
+
   // Global CMD+K / Ctrl+K listener
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -162,12 +277,44 @@ export function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
+  const handleToggleCdcStream = useCallback(() => {
+    setCdcTelemetry((prev) => ({
+      ...prev,
+      isStreaming: !prev.isStreaming,
+      currentRateTxSec: !prev.isStreaming ? Math.max(5000, prev.currentRateTxSec) : 0,
+      burstAlertActive: !prev.isStreaming ? prev.burstAlertActive : false,
+    }));
+  }, []);
+
+  const handleExportSnapshot = useCallback(() => {
+    const payload = buildLakehouseSnapshotPayload({
+      engine: engineBackend,
+      totalRows: datasetRef.current.rowCount,
+      activeSql: sql,
+      cdcTelemetry,
+      activeBrushBounds,
+      queryResult,
+      queryHistory,
+    });
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `nexus-lake-v2-snapshot-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [activeBrushBounds, cdcTelemetry, engineBackend, queryHistory, queryResult, sql]);
+
   const handleRowScaleChange = useCallback(
     async (nextRows: number) => {
       if (isLoadingScale || nextRows === rowScale) return;
       setIsLoadingScale(true);
       try {
         const nextDataset = generateColumnarTransactions(nextRows);
+        datasetRef.current = nextDataset;
+        cdcSeqRef.current = nextRows;
         setDataset(nextDataset);
         setRowScale(nextRows);
         const engine = engineRef.current;
@@ -175,7 +322,9 @@ export function App() {
           await engine.loadTransactions(nextDataset);
           setTables(engine.getTables());
           const res = await engine.executeSql(sql);
+          const explain = await engine.explainSql(sql);
           setQueryResult(res);
+          setRawExplainText(explain);
         }
       } finally {
         setIsLoadingScale(false);
@@ -198,10 +347,9 @@ export function App() {
       await refreshStorage();
       const previewSql = `SELECT * FROM "${schema.name}" LIMIT 100;`;
       setSql(previewSql);
-      const res = await engine.executeSql(previewSql);
-      setQueryResult(res);
+      await handleRunSql(previewSql, 'manual');
     },
-    [refreshStorage],
+    [handleRunSql, refreshStorage],
   );
 
   const handleSaveNotebook = useCallback(async () => {
@@ -251,6 +399,27 @@ export function App() {
     setPinnedWidgets([]);
     await refreshStorage();
   }, [refreshStorage]);
+
+  const handleApplyBrushSql = useCallback(
+    (brushSql: string, bounds: BrushSelectionBounds) => {
+      setActiveBrushBounds(bounds);
+      setSql(brushSql);
+      void handleRunSql(brushSql, 'brush');
+    },
+    [handleRunSql],
+  );
+
+  const handleTogglePinHistory = useCallback((id: string) => {
+    setQueryHistory((prev) => togglePinHistoryEntry(prev, id));
+  }, []);
+
+  const handleRerunHistory = useCallback(
+    (entry: QueryHistoryEntry) => {
+      setSql(entry.sql);
+      void handleRunSql(entry.sql, entry.source);
+    },
+    [handleRunSql],
+  );
 
   // View Transitions API circular wipe theme switcher
   const handleToggleTheme = useCallback(
@@ -308,6 +477,8 @@ export function App() {
         rowScale={rowScale}
         isLoadingScale={isLoadingScale}
         onRowScaleChange={(r) => void handleRowScaleChange(r)}
+        cdcTelemetry={cdcTelemetry}
+        onToggleCdcStream={handleToggleCdcStream}
         theme={theme}
         onToggleTheme={handleToggleTheme}
         locale={locale}
@@ -322,10 +493,13 @@ export function App() {
           notebooks={notebooks}
           vectorIndex={vectorIndex}
           storageTelemetry={storageTelemetry}
+          cdcTelemetry={cdcTelemetry}
+          onToggleCdcStream={handleToggleCdcStream}
+          onExportSnapshot={handleExportSnapshot}
           onSelectSql={(nextSql, autoRun) => {
             setActiveTab('workbench');
             setSql(nextSql);
-            if (autoRun) void handleRunSql(nextSql);
+            if (autoRun) void handleRunSql(nextSql, 'manual');
           }}
           onUploadFile={handleUploadFile}
           onSaveCurrentNotebook={() => void handleSaveNotebook()}
@@ -336,6 +510,15 @@ export function App() {
         <main className="flex-1 min-w-0 p-3 sm:p-4 overflow-y-auto nexus-grid-bg space-y-4">
           {activeTab === 'workbench' && (
             <>
+              {(cdcTelemetry.isStreaming || cdcTelemetry.batchCount > 0) && (
+                <CdcLiveStrip
+                  copy={copy}
+                  telemetry={cdcTelemetry}
+                  onToggleStream={handleToggleCdcStream}
+                  onExportSnapshot={handleExportSnapshot}
+                />
+              )}
+
               <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-stretch">
                 <div className="xl:col-span-7 min-w-0">
                   <SqlWorkbench
@@ -345,10 +528,20 @@ export function App() {
                     onRunSql={handleRunSql}
                     isRunning={isRunningSql || isLoadingScale}
                     result={queryResult}
+                    rawExplainText={rawExplainText}
+                    history={queryHistory}
+                    onTogglePinHistory={handleTogglePinHistory}
+                    onRerunHistory={handleRerunHistory}
                   />
                 </div>
                 <div className="xl:col-span-5 min-w-0">
-                  <WebGpuAnomalyCanvas copy={copy} dataset={dataset} theme={theme} />
+                  <WebGpuAnomalyCanvas
+                    copy={copy}
+                    dataset={dataset}
+                    theme={theme}
+                    onApplyBrushSql={handleApplyBrushSql}
+                    onBrushChange={setActiveBrushBounds}
+                  />
                 </div>
               </div>
 
@@ -357,7 +550,7 @@ export function App() {
                 executeSql={executeSql}
                 onApplySql={(nextSql) => {
                   setSql(nextSql);
-                  void handleRunSql(nextSql);
+                  void handleRunSql(nextSql, 'copilot');
                 }}
                 pinnedWidgets={pinnedWidgets}
                 onPinWidget={(w) => void handlePinWidget(w)}
@@ -372,7 +565,7 @@ export function App() {
               onExecutePeerSql={(peerSql) => {
                 setSql(peerSql);
                 setActiveTab('workbench');
-                void handleRunSql(peerSql);
+                void handleRunSql(peerSql, 'peer');
               }}
             />
           )}
@@ -387,7 +580,7 @@ export function App() {
         vectorIndex={vectorIndex}
         onRunPresetSql={(nextSql) => {
           setSql(nextSql);
-          void handleRunSql(nextSql);
+          void handleRunSql(nextSql, 'preset');
         }}
         onSwitchTab={setActiveTab}
         onSwitchRowScale={(r) => void handleRowScaleChange(r)}

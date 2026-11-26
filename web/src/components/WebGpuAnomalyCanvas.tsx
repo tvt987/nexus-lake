@@ -1,9 +1,23 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Code2, Cpu, SlidersHorizontal, X } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Code2,
+  Cpu,
+  Crosshair,
+  Play,
+  SlidersHorizontal,
+  X,
+} from 'lucide-react';
 import type { CopyDict } from '../i18n';
+import {
+  buildBrushSql,
+  evaluateBrushedCluster,
+  scatterToCanvasUv,
+  screenRectToBrushBounds,
+} from '../engine/brushToSql';
 import { REGIONS } from '../engine/dataGenerator';
 import { ANOMALY_COMPUTE_WGSL, ANOMALY_RENDER_WGSL } from '../engine/wgslShaders';
 import type {
+  BrushSelectionBounds,
   ColumnarTransactions,
   GpuFilterState,
   GpuTelemetry,
@@ -15,6 +29,8 @@ interface WebGpuAnomalyCanvasProps {
   copy: CopyDict;
   dataset: ColumnarTransactions;
   theme: ThemeMode;
+  onApplyBrushSql?: (sql: string, bounds: BrushSelectionBounds) => void;
+  onBrushChange?: (bounds: BrushSelectionBounds | null) => void;
 }
 
 interface WebGpuPipelineState {
@@ -31,6 +47,15 @@ interface WebGpuPipelineState {
   computeBindGroup: any;
   renderBindGroup: any;
   pointCount: number;
+  capacityPoints: number;
+}
+
+interface DragRectState {
+  startU: number;
+  startV: number;
+  curU: number;
+  curV: number;
+  dragging: boolean;
 }
 
 const WEBGL2_VS = `#version 300 es
@@ -101,8 +126,11 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
   copy,
   dataset,
   theme,
+  onApplyBrushSql,
+  onBrushChange,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const plotWrapRef = useRef<HTMLDivElement>(null);
   const [filter, setFilter] = useState<GpuFilterState>({
     riskThreshold: 0.0,
     regionMask: 0b11111,
@@ -125,13 +153,62 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
   const [renderSource, setRenderSource] = useState(ANOMALY_RENDER_WGSL);
   const [shaderStatus, setShaderStatus] = useState('WGSL Verified');
 
+  // v2.0 Interactive Brush-to-SQL Lasso state
+  const [dragRect, setDragRect] = useState<DragRectState | null>(null);
+  const [lockedUvRect, setLockedUvRect] = useState<{
+    u1: number;
+    v1: number;
+    u2: number;
+    v2: number;
+  } | null>(null);
+
   const filterRef = useRef(filter);
   filterRef.current = filter;
 
   const themeRef = useRef(theme);
   themeRef.current = theme;
 
+  const datasetRef = useRef(dataset);
+  const datasetVersionRef = useRef(0);
+  if (datasetRef.current !== dataset) {
+    datasetRef.current = dataset;
+    datasetVersionRef.current += 1;
+  }
+
   const [compileNonce, setCompileNonce] = useState(0);
+
+  // Active UV rect (either while dragging or locked)
+  const activeUvRect = useMemo(() => {
+    if (dragRect) {
+      const du = Math.abs(dragRect.curU - dragRect.startU);
+      const dv = Math.abs(dragRect.curV - dragRect.startV);
+      if (du > 0.012 && dv > 0.012) {
+        return {
+          u1: dragRect.startU,
+          v1: dragRect.startV,
+          u2: dragRect.curU,
+          v2: dragRect.curV,
+        };
+      }
+    }
+    return lockedUvRect;
+  }, [dragRect, lockedUvRect]);
+
+  const brushMetrics = useMemo(() => {
+    if (!activeUvRect) return null;
+    const bounds = screenRectToBrushBounds(
+      activeUvRect.u1,
+      activeUvRect.v1,
+      activeUvRect.u2,
+      activeUvRect.v2,
+      filter,
+    );
+    return evaluateBrushedCluster(dataset, bounds, filter);
+  }, [activeUvRect, dataset, filter]);
+
+  useEffect(() => {
+    onBrushChange?.(brushMetrics?.bounds ?? null);
+  }, [brushMetrics, onBrushChange]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -151,9 +228,12 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
     const uniformF32 = new Float32Array(uniformView);
     const uniformU32 = new Uint32Array(uniformView);
 
-    const computeVisibleCounts = (f: GpuFilterState): { visible: number; anomalies: number } => {
-      const buf = dataset.gpuVertexBuffer;
-      const n = dataset.rowCount;
+    const computeVisibleCounts = (
+      ds: ColumnarTransactions,
+      f: GpuFilterState,
+    ): { visible: number; anomalies: number } => {
+      const buf = ds.gpuVertexBuffer;
+      const n = ds.rowCount;
       const minTime = 1 - f.timeWindowPct / 100;
       let vis = 0;
       let anom = 0;
@@ -170,12 +250,70 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
       return { visible: vis, anomalies: anom };
     };
 
-    const initPipeline = async () => {
-      const compileStart = performance.now();
+    const syncCanvasSize = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const rect = canvas.getBoundingClientRect();
-      canvas.width = Math.max(320, Math.floor(rect.width * dpr));
-      canvas.height = Math.max(220, Math.floor(rect.height * dpr));
+      const targetW = Math.max(320, Math.floor(rect.width * dpr));
+      const targetH = Math.max(220, Math.floor(rect.height * dpr));
+      if (canvas.width !== targetW || canvas.height !== targetH) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+      }
+      return dpr;
+    };
+
+    const rebuildWebGpuBuffers = (state: WebGpuPipelineState, ds: ColumnarTransactions) => {
+      const GPUBufferUsage = (globalThis as unknown as { GPUBufferUsage: any }).GPUBufferUsage;
+      if (ds.rowCount > state.capacityPoints) {
+        try {
+          state.inputBuffer.destroy();
+          state.outputBuffer.destroy();
+        } catch {
+          // ignore
+        }
+        const nextCap = Math.max(ds.rowCount, Math.ceil(ds.rowCount * 1.25));
+        state.inputBuffer = state.device.createBuffer({
+          size: nextCap * 6 * 4,
+          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
+        state.outputBuffer = state.device.createBuffer({
+          size: nextCap * 16,
+          usage: GPUBufferUsage.STORAGE,
+        });
+        state.computeBindGroup = state.device.createBindGroup({
+          layout: state.computePipeline.getBindGroupLayout(0),
+          entries: [
+            { binding: 0, resource: { buffer: state.uniformBuffer } },
+            { binding: 1, resource: { buffer: state.inputBuffer } },
+            { binding: 2, resource: { buffer: state.outputBuffer } },
+            { binding: 3, resource: { buffer: state.counterBuffer } },
+          ],
+        });
+        state.renderBindGroup = state.device.createBindGroup({
+          layout: state.renderPipeline.getBindGroupLayout(0),
+          entries: [
+            { binding: 0, resource: { buffer: state.uniformBuffer } },
+            { binding: 1, resource: { buffer: state.outputBuffer } },
+          ],
+        });
+        state.capacityPoints = nextCap;
+      }
+      state.device.queue.writeBuffer(state.inputBuffer, 0, ds.gpuVertexBuffer);
+      state.pointCount = ds.rowCount;
+    };
+
+    const resizeObserver =
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(() => {
+            syncCanvasSize();
+          })
+        : null;
+    resizeObserver?.observe(canvas);
+
+    const initPipeline = async () => {
+      const compileStart = performance.now();
+      const dpr = syncCanvasSize();
+      const initialDs = datasetRef.current;
 
       // Attempt 1: Real WebGPU (WGSL Compute + Render Pipeline)
       const navGpu = (navigator as unknown as { gpu?: any }).gpu;
@@ -226,14 +364,15 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
                 usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
               });
 
+              const capacityPoints = Math.max(initialDs.rowCount, 150_000);
               const inputBuffer = device.createBuffer({
-                size: dataset.gpuVertexBuffer.byteLength,
+                size: capacityPoints * 6 * 4,
                 usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
               });
-              device.queue.writeBuffer(inputBuffer, 0, dataset.gpuVertexBuffer);
+              device.queue.writeBuffer(inputBuffer, 0, initialDs.gpuVertexBuffer);
 
               const outputBuffer = device.createBuffer({
-                size: dataset.rowCount * 16,
+                size: capacityPoints * 16,
                 usage: GPUBufferUsage.STORAGE,
               });
 
@@ -272,7 +411,8 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
                 counterBuffer,
                 computeBindGroup,
                 renderBindGroup,
-                pointCount: dataset.rowCount,
+                pointCount: initialDs.rowCount,
+                capacityPoints,
               };
               rendererMode = 'WEBGPU WGSL';
               setShaderStatus('WebGPU Compute + Render Compiled');
@@ -309,7 +449,7 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
             gl.bindVertexArray(glVao);
             glBuffer = gl.createBuffer();
             gl.bindBuffer(gl.ARRAY_BUFFER, glBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, dataset.gpuVertexBuffer, gl.STATIC_DRAW);
+            gl.bufferData(gl.ARRAY_BUFFER, initialDs.gpuVertexBuffer, gl.DYNAMIC_DRAW);
 
             const stride = 6 * 4;
             gl.enableVertexAttribArray(0);
@@ -337,17 +477,31 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
       let frameCounter = 0;
       let currentFps = 60;
       let lastFilterHash = '';
-      let cachedCounts = computeVisibleCounts(filterRef.current);
+      let uploadedVersion = datasetVersionRef.current;
+      let cachedCounts = computeVisibleCounts(initialDs, filterRef.current);
 
       const renderFrame = () => {
         if (disposed) return;
         const frameStart = performance.now();
         const f = filterRef.current;
+        const ds = datasetRef.current;
         const isDark = themeRef.current === 'dark';
 
-        const filterHash = `${f.riskThreshold}|${f.regionMask}|${f.timeWindowPct}|${f.yAxisMode}`;
+        // Zero-teardown hot GPU buffer swap when CDC streams or dataset scales
+        if (datasetVersionRef.current !== uploadedVersion) {
+          uploadedVersion = datasetVersionRef.current;
+          if (webgpuState) {
+            rebuildWebGpuBuffers(webgpuState, ds);
+          } else if (gl && glBuffer) {
+            gl.bindBuffer(gl.ARRAY_BUFFER, glBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, ds.gpuVertexBuffer, gl.DYNAMIC_DRAW);
+          }
+          lastFilterHash = '';
+        }
+
+        const filterHash = `${uploadedVersion}|${f.riskThreshold}|${f.regionMask}|${f.timeWindowPct}|${f.yAxisMode}`;
         if (filterHash !== lastFilterHash) {
-          cachedCounts = computeVisibleCounts(f);
+          cachedCounts = computeVisibleCounts(ds, f);
           lastFilterHash = filterHash;
         }
 
@@ -422,14 +576,13 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
           gl.uniform1f(gl.getUniformLocation(glProgram, 'u_pointSize'), f.pointSize * dpr);
 
           gl.bindVertexArray(glVao);
-          gl.drawArrays(gl.POINTS, 0, dataset.rowCount);
+          gl.drawArrays(gl.POINTS, 0, ds.rowCount);
         } else if (ctx2d) {
           const w = canvas.width;
           const h = canvas.height;
           ctx2d.fillStyle = isDark ? '#0A0C11' : '#F9F7F3';
           ctx2d.fillRect(0, 0, w, h);
 
-          // Draw crisp reference grid
           ctx2d.strokeStyle = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(15,23,42,0.06)';
           ctx2d.lineWidth = 1;
           for (let g = 1; g < 5; g += 1) {
@@ -440,8 +593,8 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
             ctx2d.stroke();
           }
 
-          const buf = dataset.gpuVertexBuffer;
-          const n = dataset.rowCount;
+          const buf = ds.gpuVertexBuffer;
+          const n = ds.rowCount;
           const step = n > 120_000 ? 2 : 1;
           const sz = Math.max(1.5, f.pointSize * 0.75);
 
@@ -453,9 +606,10 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
             if (risk < f.riskThreshold || (f.regionMask & rBit) === 0 || tNorm < minTimeNorm) {
               continue;
             }
-            const x = buf[b] * (w - 20) + 10;
             const yVal = f.yAxisMode === 'latency_ms' ? buf[b + 2] : risk;
-            const y = (1 - yVal) * (h - 20) + 10;
+            const uv = scatterToCanvasUv(buf[b], yVal);
+            const x = uv.u * w;
+            const y = uv.v * h;
 
             if (risk >= 0.75) {
               ctx2d.fillStyle = 'rgba(255, 85, 0, 0.88)';
@@ -480,7 +634,7 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
           setTelemetry({
             renderer: rendererMode,
             fps: currentFps,
-            totalPoints: dataset.rowCount,
+            totalPoints: ds.rowCount,
             visiblePoints: cachedCounts.visible,
             anomalyPoints: cachedCounts.anomalies,
             frameTimeMs,
@@ -491,11 +645,10 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
         rafId = requestAnimationFrame(renderFrame);
       };
 
-      // Set immediate initial telemetry before first 450ms window
       setTelemetry({
         renderer: rendererMode,
         fps: 60,
-        totalPoints: dataset.rowCount,
+        totalPoints: initialDs.rowCount,
         visiblePoints: cachedCounts.visible,
         anomalyPoints: cachedCounts.anomalies,
         frameTimeMs: 1.2,
@@ -510,6 +663,7 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
     return () => {
       disposed = true;
       cancelAnimationFrame(rafId);
+      resizeObserver?.disconnect();
       if (gl && glBuffer) gl.deleteBuffer(glBuffer);
       if (gl && glProgram) gl.deleteProgram(glProgram);
       if (webgpuState) {
@@ -523,7 +677,7 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
         }
       }
     };
-  }, [dataset, compileNonce, computeSource, renderSource]);
+  }, [compileNonce, computeSource, renderSource]);
 
   const toggleRegionBit = (bitIndex: number) => {
     setFilter((prev) => {
@@ -531,6 +685,66 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
       return { ...prev, regionMask: nextMask === 0 ? 1 << bitIndex : nextMask };
     });
   };
+
+  // Pointer-driven Brush-to-SQL lasso rectangle handlers
+  const getNormalizedPointer = (clientX: number, clientY: number) => {
+    const el = plotWrapRef.current;
+    if (!el) return { u: 0, v: 0 };
+    const rect = el.getBoundingClientRect();
+    const u = Math.max(0, Math.min(1, (clientX - rect.left) / Math.max(1, rect.width)));
+    const v = Math.max(0, Math.min(1, (clientY - rect.top) / Math.max(1, rect.height)));
+    return { u, v };
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    const { u, v } = getNormalizedPointer(e.clientX, e.clientY);
+    setDragRect({ startU: u, startV: v, curU: u, curV: v, dragging: true });
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragRect?.dragging) return;
+    const { u, v } = getNormalizedPointer(e.clientX, e.clientY);
+    setDragRect((prev) => (prev ? { ...prev, curU: u, curV: v } : null));
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragRect?.dragging) return;
+    e.currentTarget.releasePointerCapture?.(e.pointerId);
+    const { u, v } = getNormalizedPointer(e.clientX, e.clientY);
+    const du = Math.abs(u - dragRect.startU);
+    const dv = Math.abs(v - dragRect.startV);
+    if (du > 0.015 && dv > 0.015) {
+      setLockedUvRect({ u1: dragRect.startU, v1: dragRect.startV, u2: u, v2: v });
+    }
+    setDragRect(null);
+  };
+
+  const handleApplyBrushToSql = () => {
+    if (!brushMetrics || !onApplyBrushSql) return;
+    const generatedSql = buildBrushSql(brushMetrics.bounds);
+    onApplyBrushSql(generatedSql, brushMetrics.bounds);
+  };
+
+  const handleClearBrush = () => {
+    setDragRect(null);
+    setLockedUvRect(null);
+  };
+
+  const overlayBoxStyle = useMemo(() => {
+    if (!activeUvRect) return null;
+    const leftPct = Math.min(activeUvRect.u1, activeUvRect.u2) * 100;
+    const topPct = Math.min(activeUvRect.v1, activeUvRect.v2) * 100;
+    const widthPct = Math.abs(activeUvRect.u2 - activeUvRect.u1) * 100;
+    const heightPct = Math.abs(activeUvRect.v2 - activeUvRect.v1) * 100;
+    return {
+      left: `${leftPct}%`,
+      top: `${topPct}%`,
+      width: `${widthPct}%`,
+      height: `${heightPct}%`,
+    };
+  }, [activeUvRect]);
 
   return (
     <section className="nexus-panel rounded-md flex flex-col overflow-hidden h-full">
@@ -585,14 +799,14 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
       </div>
 
       {/* Interactive GPU Controls Bar */}
-      <div className="px-3 py-2 nexus-hairline-b bg-[var(--bg-inset)] grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
-        <div>
-          <div className="flex items-center justify-between gap-1 font-mono-tech text-[10px] mb-1 whitespace-nowrap">
-            <span className="text-[var(--text-muted)] flex items-center gap-1">
+      <div className="px-3 py-2 nexus-hairline-b bg-[var(--bg-inset)] grid grid-cols-1 sm:grid-cols-3 gap-x-3 gap-y-2 items-center">
+        <div className="min-w-0">
+          <div className="flex items-center justify-between gap-1 font-mono-tech text-[10px] mb-1">
+            <span className="text-[var(--text-muted)] flex items-center gap-1 truncate">
               <SlidersHorizontal className="w-2.5 h-2.5 shrink-0" />
               {copy.riskThreshold}
             </span>
-            <span className="text-[var(--accent-signal)] font-semibold">
+            <span className="text-[var(--accent-signal)] font-semibold shrink-0">
               &gt;= {filter.riskThreshold.toFixed(2)}
             </span>
           </div>
@@ -610,10 +824,10 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
           />
         </div>
 
-        <div>
-          <div className="flex items-center justify-between font-mono-tech text-[10px] mb-1">
-            <span className="text-[var(--text-muted)]">{copy.timeWindow}</span>
-            <span className="text-[var(--accent-cyan)] font-semibold">
+        <div className="min-w-0">
+          <div className="flex items-center justify-between gap-1 font-mono-tech text-[10px] mb-1">
+            <span className="text-[var(--text-muted)] truncate">{copy.timeWindow}</span>
+            <span className="text-[var(--accent-cyan)] font-semibold shrink-0">
               Last {filter.timeWindowPct}%
             </span>
           </div>
@@ -630,7 +844,7 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
           />
         </div>
 
-        <div className="flex items-center justify-between gap-1.5">
+        <div className="flex items-center justify-between gap-1.5 min-w-0">
           <div className="flex flex-wrap gap-1">
             {REGIONS.map((region, idx) => {
               const active = (filter.regionMask & (1 << idx)) !== 0;
@@ -673,15 +887,37 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
         </div>
       </div>
 
-      {/* Main High-Density Plot Canvas + Axis Overlays */}
-      <div className="relative flex-1 min-h-[340px] w-full bg-[var(--bg-inset)] overflow-hidden">
+      {/* Main High-Density Plot Canvas + Interactive Brush-to-SQL Lasso Overlay */}
+      <div
+        ref={plotWrapRef}
+        data-testid="gpu-brush-surface"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        className="relative flex-1 min-h-[300px] w-full bg-[var(--bg-inset)] overflow-hidden select-none touch-none cursor-crosshair"
+      >
         <canvas
           ref={canvasRef}
           data-testid="anomaly-gpu-canvas"
-          className="w-full h-full block"
+          className="w-full h-full block pointer-events-none"
         />
 
-        {/* Subtle Swiss Axis HUD (zero overlap across viewports) */}
+        {/* Translucent Swiss Lasso Selection Rectangle */}
+        {overlayBoxStyle && (
+          <div
+            data-testid="brush-selection-rect"
+            style={overlayBoxStyle}
+            className="pointer-events-none absolute border border-[var(--accent-cyan)] bg-[var(--accent-cyan)]/14 shadow-[0_0_0_1px_rgba(6,182,212,0.35)_inset]"
+          >
+            {/* Corner Reticles */}
+            <span className="absolute -top-0.5 -left-0.5 w-2 h-2 border-t-2 border-l-2 border-[var(--accent-signal)]" />
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 border-t-2 border-r-2 border-[var(--accent-signal)]" />
+            <span className="absolute -bottom-0.5 -left-0.5 w-2 h-2 border-b-2 border-l-2 border-[var(--accent-signal)]" />
+            <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 border-b-2 border-r-2 border-[var(--accent-signal)]" />
+          </div>
+        )}
+
+        {/* Subtle Swiss Axis HUD */}
         <div className="pointer-events-none absolute top-2 left-2.5 font-mono-tech text-[9px] text-[var(--text-muted)] bg-[var(--bg-surface)]/85 px-1.5 py-0.5 rounded border border-[var(--border-hairline)]">
           Y: {filter.yAxisMode === 'risk_score' ? 'RISK SCORE (0-1)' : 'LATENCY (0-850ms)'}
         </div>
@@ -696,10 +932,114 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
             <span className="w-1.5 h-1.5 rounded-full bg-[#FF5500]" /> Burst
           </span>
         </div>
+
+        {!brushMetrics && (
+          <div className="pointer-events-none absolute bottom-2 left-2.5 hidden sm:flex items-center gap-1 font-mono-tech text-[9px] text-[var(--accent-cyan)] bg-[var(--bg-surface)]/85 px-1.5 py-0.5 rounded border border-[var(--border-hairline)]">
+            <Crosshair className="w-2.5 h-2.5" />
+            {copy.brushHint}
+          </div>
+        )}
+
         <div className="pointer-events-none absolute bottom-2 right-2.5 font-mono-tech text-[9px] text-[var(--text-muted)] bg-[var(--bg-surface)]/85 px-1.5 py-0.5 rounded border border-[var(--border-hairline)]">
           X: LOG10(AMOUNT_USD) · {telemetry.totalPoints.toLocaleString()} PTS · {telemetry.frameTimeMs}ms
         </div>
       </div>
+
+      {/* Interactive Brush-to-SQL Cluster Telemetry HUD Bar */}
+      {brushMetrics && (
+        <div
+          data-testid="brush-hud-bar"
+          className="px-3 py-2 nexus-hairline-t bg-[var(--bg-surface)] space-y-2"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono-tech text-[10px]">
+              <span className="text-[var(--accent-cyan)] font-semibold flex items-center gap-1">
+                <Crosshair className="w-3 h-3" />
+                LASSO CLUSTER
+              </span>
+              <span className="text-[var(--text-muted)]">
+                SELECTED:{' '}
+                <strong data-testid="brush-selected-count" className="text-[var(--text-primary)]">
+                  {brushMetrics.selectedPoints.toLocaleString()}
+                </strong>
+              </span>
+              <span className="text-[var(--text-muted)]">
+                AVG AMT:{' '}
+                <strong className="text-[var(--text-primary)]">
+                  ${brushMetrics.avgAmountUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </strong>
+              </span>
+              <span className="text-[var(--text-muted)]">
+                ANOMALY:{' '}
+                <strong
+                  className={
+                    brushMetrics.anomalyRatePct >= 20
+                      ? 'text-[var(--accent-signal)]'
+                      : 'text-[var(--accent-emerald)]'
+                  }
+                >
+                  {brushMetrics.anomalyRatePct.toFixed(1)}%
+                </strong>
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                data-testid="clear-brush-btn"
+                onClick={handleClearBrush}
+                className="px-2 py-1 rounded border border-[var(--border-hairline)] bg-[var(--bg-inset)] hover:border-[var(--border-strong)] font-mono-tech text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+              >
+                {copy.clearBrush}
+              </button>
+              <button
+                type="button"
+                data-testid="apply-brush-sql-btn"
+                onClick={handleApplyBrushToSql}
+                className="px-2.5 py-1 rounded bg-[var(--accent-signal)] hover:brightness-110 text-white font-mono-tech text-[10px] font-semibold flex items-center gap-1 transition-all cursor-pointer"
+              >
+                <Play className="w-2.5 h-2.5 fill-current" />
+                {copy.applyBrushSql}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono-tech text-[9.5px] text-[var(--text-muted)] px-2 py-1 rounded bg-[var(--bg-inset)] border border-[var(--border-hairline)]">
+            <span>
+              amount_usd BETWEEN{' '}
+              <strong className="text-[var(--accent-cyan)]">
+                ${brushMetrics.bounds.minAmountUsd.toFixed(2)}
+              </strong>{' '}
+              AND{' '}
+              <strong className="text-[var(--accent-cyan)]">
+                ${brushMetrics.bounds.maxAmountUsd.toFixed(2)}
+              </strong>
+            </span>
+            <span>
+              risk_score BETWEEN{' '}
+              <strong className="text-[var(--accent-signal)]">
+                {brushMetrics.bounds.minRiskScore.toFixed(3)}
+              </strong>{' '}
+              AND{' '}
+              <strong className="text-[var(--accent-signal)]">
+                {brushMetrics.bounds.maxRiskScore.toFixed(3)}
+              </strong>
+            </span>
+            {brushMetrics.bounds.yAxisMode === 'latency_ms' && (
+              <span>
+                latency_ms BETWEEN{' '}
+                <strong className="text-[var(--accent-emerald)]">
+                  {brushMetrics.bounds.minLatencyMs}
+                </strong>{' '}
+                AND{' '}
+                <strong className="text-[var(--accent-emerald)]">
+                  {brushMetrics.bounds.maxLatencyMs}ms
+                </strong>
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Collapsible WGSL Compute + Render Shader Inspector */}
       {showInspector && (

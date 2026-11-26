@@ -1,12 +1,17 @@
 import React, { useMemo, useRef, useState } from 'react';
 import {
+  AlertTriangle,
   BookMarked,
   ChevronDown,
   ChevronRight,
   Database,
+  Download,
   FileUp,
   HardDrive,
+  Pause,
+  Play,
   Plus,
+  Radio,
   Search,
   Sparkles,
   Table2,
@@ -15,10 +20,12 @@ import {
 import type { CopyDict } from '../i18n';
 import type { LocalSemanticVectorIndex } from '../engine/vectorIndex';
 import type {
+  CdcTelemetryState,
   SavedNotebook,
   StorageTelemetry,
   TableSchemaInfo,
 } from '../types/lakehouse';
+import { CdcSparklineSvg } from './CdcLiveStrip';
 
 interface SidebarCatalogProps {
   copy: CopyDict;
@@ -26,6 +33,9 @@ interface SidebarCatalogProps {
   notebooks: SavedNotebook[];
   vectorIndex: LocalSemanticVectorIndex;
   storageTelemetry: StorageTelemetry;
+  cdcTelemetry: CdcTelemetryState;
+  onToggleCdcStream: () => void;
+  onExportSnapshot: () => void;
   onSelectSql: (sql: string, autoRun?: boolean) => void;
   onUploadFile: (fileName: string, content: string) => Promise<void>;
   onSaveCurrentNotebook: () => void;
@@ -53,6 +63,9 @@ export const SidebarCatalog: React.FC<SidebarCatalogProps> = ({
   notebooks,
   vectorIndex,
   storageTelemetry,
+  cdcTelemetry,
+  onToggleCdcStream,
+  onExportSnapshot,
   onSelectSql,
   onUploadFile,
   onSaveCurrentNotebook,
@@ -268,6 +281,87 @@ export const SidebarCatalog: React.FC<SidebarCatalogProps> = ({
             className="mt-1.5 w-full py-1 px-2 rounded border border-[var(--border-hairline)] bg-[var(--bg-inset)] hover:border-[var(--border-strong)] font-mono-tech text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
           >
             + Ingest Sample merchant_tiers.csv
+          </button>
+        </section>
+
+        {/* Live Kafka CDC Stream & Snapshot Card */}
+        <section className="p-2.5 rounded border border-[var(--border-hairline)] bg-[var(--bg-inset)] space-y-2">
+          <div className="flex items-center justify-between gap-1.5">
+            <span className="font-mono-tech text-[10px] tracking-wider uppercase text-[var(--text-muted)] flex items-center gap-1.5">
+              <Radio
+                className={`w-3 h-3 ${
+                  cdcTelemetry.isStreaming
+                    ? 'text-[var(--accent-emerald)]'
+                    : 'text-[var(--accent-cyan)]'
+                }`}
+              />
+              KAFKA CDC STREAM
+            </span>
+            <button
+              type="button"
+              data-testid="sidebar-cdc-toggle"
+              onClick={onToggleCdcStream}
+              className={`px-2 py-0.5 rounded border font-mono-tech text-[9.5px] font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
+                cdcTelemetry.isStreaming
+                  ? 'border-[var(--accent-emerald)] bg-[var(--accent-emerald-soft)] text-[var(--accent-emerald)]'
+                  : 'border-[var(--border-strong)] bg-[var(--bg-surface)] text-[var(--text-primary)] hover:border-[var(--accent-cyan)]'
+              }`}
+            >
+              {cdcTelemetry.isStreaming ? (
+                <>
+                  <Pause className="w-2.5 h-2.5" />
+                  LIVE
+                </>
+              ) : (
+                <>
+                  <Play className="w-2.5 h-2.5 fill-current" />
+                  +5K/s
+                </>
+              )}
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between gap-2">
+            <CdcSparklineSvg
+              rates={cdcTelemetry.rateHistory}
+              isStreaming={cdcTelemetry.isStreaming}
+              burstActive={cdcTelemetry.burstAlertActive}
+              width={118}
+              height={24}
+            />
+            <div className="text-right font-mono-tech leading-tight">
+              <div
+                className={`text-[10.5px] font-semibold ${
+                  cdcTelemetry.isStreaming
+                    ? 'text-[var(--accent-emerald)]'
+                    : 'text-[var(--text-muted)]'
+                }`}
+              >
+                {cdcTelemetry.isStreaming
+                  ? `+${cdcTelemetry.currentRateTxSec.toLocaleString()}/s`
+                  : 'IDLE'}
+              </div>
+              <div className="text-[9px] text-[var(--text-muted)]">
+                +{cdcTelemetry.totalIngestedRows.toLocaleString()} tx
+              </div>
+            </div>
+          </div>
+
+          {cdcTelemetry.burstAlertActive && (
+            <div className="px-2 py-1 rounded border border-[var(--accent-signal)] bg-[var(--accent-signal-soft)] text-[var(--accent-signal)] font-mono-tech text-[9.5px] font-semibold flex items-center gap-1">
+              <AlertTriangle className="w-3 h-3 shrink-0" />
+              BURST ALERT (+{cdcTelemetry.lastBatchAnomalies} anom)
+            </div>
+          )}
+
+          <button
+            type="button"
+            data-testid="sidebar-export-snapshot-btn"
+            onClick={onExportSnapshot}
+            className="w-full py-1 px-2 rounded border border-[var(--border-hairline)] bg-[var(--bg-surface)] hover:border-[var(--accent-cyan)] font-mono-tech text-[9.5px] text-[var(--text-secondary)] hover:text-[var(--accent-cyan)] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <Download className="w-3 h-3" />
+            {copy.exportSnapshot}
           </button>
         </section>
 

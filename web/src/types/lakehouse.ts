@@ -171,3 +171,136 @@ export interface ByokConfig {
   apiKey: string;
   model: string;
 }
+
+export interface BrushSelectionBounds {
+  uMin: number;
+  uMax: number;
+  vMin: number;
+  vMax: number;
+  minAmountUsd: number;
+  maxAmountUsd: number;
+  minRiskScore: number;
+  maxRiskScore: number;
+  minLatencyMs: number;
+  maxLatencyMs: number;
+  yAxisMode: 'risk_score' | 'latency_ms';
+  activeRegions: RegionCode[];
+}
+
+export interface BrushedClusterMetrics {
+  selectedPoints: number;
+  totalVisiblePoints: number;
+  shareOfVisiblePct: number;
+  avgAmountUsd: number;
+  totalVolumeUsd: number;
+  anomalyCount: number;
+  anomalyRatePct: number;
+  avgRiskScore: number;
+  avgLatencyMs: number;
+  bounds: BrushSelectionBounds;
+}
+
+export type WorkbenchSubTab = 'results' | 'chart' | 'plan' | 'history';
+export type AutoChartType = 'bar' | 'area' | 'metric';
+
+export interface AutoChartPoint {
+  label: string;
+  value: number;
+  secondaryValue?: number;
+  isHighlighted?: boolean;
+}
+
+export interface AutoChartModel {
+  recommendedType: AutoChartType;
+  labelColumn: string;
+  numericColumns: string[];
+  metricColumn: string;
+  secondaryMetricColumn?: string;
+  points: AutoChartPoint[];
+  summary: {
+    min: number;
+    max: number;
+    avg: number;
+    sum: number;
+    count: number;
+  };
+}
+
+export interface QueryPlanStage {
+  id: string;
+  operator: string;
+  detail: string;
+  estimatedRowsIn: number;
+  estimatedRowsOut: number;
+  timingMs: number;
+  sharePct: number;
+  vectorized: boolean;
+}
+
+export interface ArrowColumnBufferStat {
+  column: string;
+  arrowType: string;
+  bytes: number;
+  sharePct: number;
+  encoding: 'FIXED_WIDTH' | 'UTF8_OFFSET' | 'BITPACKED_BOOL';
+}
+
+export interface QueryPlanAnalysis {
+  stages: QueryPlanStage[];
+  rawExplainText: string;
+  source: 'DUCKDB_EXPLAIN' | 'VECTORIZED_ANALYZER';
+  totalExecutionMs: number;
+  rowsPerSec: number;
+  scannedRows: number;
+  returnedRows: number;
+  arrowTotalBytes: number;
+  arrowBuffers: ArrowColumnBufferStat[];
+}
+
+export type QueryHistorySource = 'manual' | 'preset' | 'brush' | 'copilot' | 'cdc' | 'peer';
+
+export interface QueryHistoryEntry {
+  id: string;
+  sql: string;
+  label: string;
+  executedAt: string;
+  executionMs: number;
+  rowCount: number;
+  scannedRows: number;
+  engine: EngineBackend;
+  pinned: boolean;
+  source: QueryHistorySource;
+  error?: string;
+}
+
+export interface CdcTelemetryState {
+  isStreaming: boolean;
+  topicName: string;
+  currentRateTxSec: number;
+  totalIngestedRows: number;
+  totalBurstAnomalies: number;
+  batchCount: number;
+  lastIngestMs: number;
+  lastBatchAnomalies: number;
+  burstAlertActive: boolean;
+  rateHistory: number[];
+}
+
+export interface LakehouseSnapshotPayload {
+  version: string;
+  exportedAt: string;
+  engine: EngineBackend;
+  totalRows: number;
+  activeSql: string;
+  cdcTelemetry: CdcTelemetryState;
+  activeBrushBounds: BrushSelectionBounds | null;
+  queryResult: {
+    columns: string[];
+    rowCount: number;
+    scannedRows: number;
+    executionMs: number;
+    rowsPerSec: number;
+    rows: Record<string, unknown>[];
+  } | null;
+  queryHistory: QueryHistoryEntry[];
+}

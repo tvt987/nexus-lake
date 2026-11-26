@@ -33,6 +33,17 @@ export interface CopyDict {
   reconnectSync: string;
   statusOnline: string;
   statusPartitioned: string;
+  // v2.0 VIP PRO copy
+  liveCdcLabel: string;
+  liveCdcActive: string;
+  exportSnapshot: string;
+  subtabResults: string;
+  subtabChart: string;
+  subtabPlan: string;
+  subtabHistory: string;
+  brushHint: string;
+  applyBrushSql: string;
+  clearBrush: string;
 }
 
 export const COPY: Record<Locale, CopyDict> = {
@@ -71,6 +82,16 @@ export const COPY: Record<Locale, CopyDict> = {
     reconnectSync: 'Reconnect & Sync CRDT',
     statusOnline: 'MESH LINK CONNECTED',
     statusPartitioned: 'NETWORK PARTITIONED (OFFLINE)',
+    liveCdcLabel: 'Live CDC Stream',
+    liveCdcActive: 'CDC LIVE',
+    exportSnapshot: 'Export SQL + JSON Snapshot',
+    subtabResults: 'Results Table',
+    subtabChart: 'Auto-Chart',
+    subtabPlan: 'Query Plan & Arrow',
+    subtabHistory: 'History',
+    brushHint: 'DRAG TO LASSO CLUSTER -> SQL',
+    applyBrushSql: 'Apply Brush to SQL',
+    clearBrush: 'Clear Selection',
   },
   vi: {
     subtitle: 'KHO DỮ LIỆU OLAP LOCAL-FIRST & TRẠM PHÂN TÍCH AI BI',
@@ -107,5 +128,15 @@ export const COPY: Record<Locale, CopyDict> = {
     reconnectSync: 'Kết Nối Lại & Hợp Nhất CRDT',
     statusOnline: 'ĐANG ĐỒNG BỘ MESH CRDT',
     statusPartitioned: 'MẤT KẾT NỐI MẠNG (OFFLINE)',
+    liveCdcLabel: 'Luồng CDC Trực Tiếp',
+    liveCdcActive: 'CDC TRỰC TIẾP',
+    exportSnapshot: 'Xuất SQL + JSON Snapshot',
+    subtabResults: 'Bảng Kết Quả',
+    subtabChart: 'Biểu Đồ Tự Động',
+    subtabPlan: 'Kế Hoạch & Arrow',
+    subtabHistory: 'Lịch Sử',
+    brushHint: 'KÉO CHỌN CỤM -> TẠO SQL',
+    applyBrushSql: 'Áp Dụng Vùng Chọn Vào SQL',
+    clearBrush: 'Xóa Vùng Chọn',
   },
 };

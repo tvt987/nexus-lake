@@ -7,10 +7,12 @@ import {
   Globe,
   Layers,
   Moon,
+  Radio,
   Sun,
 } from 'lucide-react';
 import type { CopyDict } from '../i18n';
 import type {
+  CdcTelemetryState,
   EngineBackend,
   Locale,
   ThemeMode,
@@ -25,6 +27,8 @@ interface TopBarProps {
   rowScale: number;
   isLoadingScale: boolean;
   onRowScaleChange: (rows: number) => void;
+  cdcTelemetry: CdcTelemetryState;
+  onToggleCdcStream: () => void;
   theme: ThemeMode;
   onToggleTheme: (e: React.MouseEvent<HTMLButtonElement>) => void;
   locale: Locale;
@@ -42,6 +46,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   rowScale,
   isLoadingScale,
   onRowScaleChange,
+  cdcTelemetry,
+  onToggleCdcStream,
   theme,
   onToggleTheme,
   locale,
@@ -49,10 +55,10 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenCommandPalette,
 }) => {
   return (
-    <header className="h-12 shrink-0 px-3 sm:px-4 flex items-center justify-between gap-2 nexus-hairline-b bg-[var(--bg-surface)] select-none">
+    <header className="h-12 shrink-0 px-2.5 sm:px-4 flex items-center justify-between gap-2 nexus-hairline-b bg-[var(--bg-surface)] select-none">
       {/* Brand + Tabs */}
-      <div className="flex items-center gap-4 min-w-0">
-        <div className="flex items-center gap-2.5 shrink-0">
+      <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+        <div className="flex items-center gap-2 shrink-0">
           <svg
             width="24"
             height="24"
@@ -95,11 +101,14 @@ export const TopBar: React.FC<TopBarProps> = ({
           </svg>
           <div className="leading-none">
             <div className="flex items-center gap-2">
-              <span className="font-display font-bold text-sm tracking-tight text-[var(--text-primary)]">
+              <span className="font-display font-bold text-xs sm:text-sm tracking-tight text-[var(--text-primary)] whitespace-nowrap">
                 NEXUS LAKE
               </span>
-              <span className="hidden xl:inline-block font-mono-tech text-[10px] px-1.5 py-0.5 rounded bg-[var(--bg-elevated)] text-[var(--text-muted)] border border-[var(--border-hairline)]">
-                v1.0
+              <span
+                data-testid="version-badge"
+                className="hidden lg:inline-block font-mono-tech text-[9.5px] px-1.5 py-0.5 rounded bg-[var(--accent-cyan-soft)] text-[var(--accent-cyan)] border border-[var(--accent-cyan)]/35 whitespace-nowrap font-semibold"
+              >
+                v2.0 · LAKEHOUSE
               </span>
             </div>
             <p className="hidden 2xl:block text-[9px] font-mono-tech tracking-wider text-[var(--text-muted)] mt-0.5">
@@ -154,11 +163,45 @@ export const TopBar: React.FC<TopBarProps> = ({
       </div>
 
       {/* Right Instrument Controls */}
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        {/* Live Streaming CDC Toggle */}
+        <button
+          type="button"
+          data-testid="cdc-stream-toggle"
+          onClick={onToggleCdcStream}
+          title="Toggle +5,000 tx/sec Simulated Kafka CDC Ingest"
+          className={`flex items-center gap-1.5 px-2 py-1 rounded border font-mono-tech text-[10.5px] font-medium transition-colors cursor-pointer ${
+            cdcTelemetry.isStreaming
+              ? cdcTelemetry.burstAlertActive
+                ? 'border-[var(--accent-signal)] bg-[var(--accent-signal-soft)] text-[var(--accent-signal)]'
+                : 'border-[var(--accent-emerald)] bg-[var(--accent-emerald-soft)] text-[var(--accent-emerald)]'
+              : 'border-[var(--border-hairline)] bg-[var(--bg-inset)] text-[var(--text-secondary)] hover:border-[var(--border-strong)]'
+          }`}
+        >
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${
+              cdcTelemetry.isStreaming
+                ? cdcTelemetry.burstAlertActive
+                  ? 'bg-[var(--accent-signal)] animate-telemetry-dot'
+                  : 'bg-[var(--accent-emerald)] animate-telemetry-dot'
+                : 'bg-[var(--text-muted)]'
+            }`}
+          />
+          <Radio className="w-3 h-3 shrink-0" />
+          <span className="hidden xl:inline">
+            {cdcTelemetry.isStreaming
+              ? `${copy.liveCdcActive} +${(cdcTelemetry.currentRateTxSec / 1000).toFixed(1)}K/s`
+              : copy.liveCdcLabel}
+          </span>
+          <span className="xl:hidden">
+            {cdcTelemetry.isStreaming ? 'LIVE' : 'CDC'}
+          </span>
+        </button>
+
         {/* Live OLAP Engine Badge */}
         <div
           data-testid="engine-badge"
-          className="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded border border-[var(--border-hairline)] bg-[var(--bg-inset)] font-mono-tech text-[11px]"
+          className="hidden xl:flex items-center gap-1.5 px-2 py-1 rounded border border-[var(--border-hairline)] bg-[var(--bg-inset)] font-mono-tech text-[11px]"
         >
           <span
             className={`w-1.5 h-1.5 rounded-full animate-telemetry-dot ${
@@ -202,10 +245,10 @@ export const TopBar: React.FC<TopBarProps> = ({
           type="button"
           data-testid="cmd-palette-trigger"
           onClick={onOpenCommandPalette}
-          className="flex items-center gap-1.5 px-2 py-1 rounded border border-[var(--border-hairline)] bg-[var(--bg-inset)] hover:border-[var(--border-strong)] text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+          className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded border border-[var(--border-hairline)] bg-[var(--bg-inset)] hover:border-[var(--border-strong)] text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
         >
           <Command className="w-3 h-3" />
-          <span className="hidden xl:inline">{copy.cmdPalette}</span>
+          <span className="hidden 2xl:inline">{copy.cmdPalette}</span>
           <kbd className="font-mono-tech text-[10px] px-1 py-0.2 rounded bg-[var(--bg-elevated)] text-[var(--text-secondary)]">
             K
           </kbd>

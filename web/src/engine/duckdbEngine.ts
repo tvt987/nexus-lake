@@ -338,19 +338,45 @@ export function runFallbackSql(
     };
   }
 
-  // Default row-level scan with WHERE filters + ORDER BY + LIMIT
+  // Default row-level scan with WHERE filters + BETWEEN + IN + ORDER BY + LIMIT
   const onlyAnomaly = /is_anomaly\s*=\s*true/i.test(clean);
   const regionMatch = clean.match(/region\s*=\s*'([^']+)'/i);
+  const regionInMatch = clean.match(/region\s+IN\s*\(([^)]+)\)/i);
+  const regionInSet = regionInMatch
+    ? new Set(
+        regionInMatch[1]
+          .split(',')
+          .map((s) => s.trim().replace(/^'|'$/g, ''))
+          .filter(Boolean),
+      )
+    : null;
   const riskMatch = clean.match(/risk_score\s*>=\s*(\d+(?:\.\d+)?)/i);
+  const amountBetween = clean.match(/amount_usd\s+BETWEEN\s+(\d+(?:\.\d+)?)\s+AND\s+(\d+(?:\.\d+)?)/i);
+  const riskBetween = clean.match(/risk_score\s+BETWEEN\s+(\d+(?:\.\d+)?)\s+AND\s+(\d+(?:\.\d+)?)/i);
+  const latencyBetween = clean.match(/latency_ms\s+BETWEEN\s+(\d+(?:\.\d+)?)\s+AND\s+(\d+(?:\.\d+)?)/i);
   const limitMatch = clean.match(/\bLIMIT\s+(\d+)/i);
   const limit = Math.min(500, limitMatch ? Number(limitMatch[1]) : 150);
   const minRisk = riskMatch ? Number(riskMatch[1]) : -1;
+  const amtMin = amountBetween ? Number(amountBetween[1]) : -Infinity;
+  const amtMax = amountBetween ? Number(amountBetween[2]) : Infinity;
+  const rMin = riskBetween ? Number(riskBetween[1]) : -Infinity;
+  const rMax = riskBetween ? Number(riskBetween[2]) : Infinity;
+  const latMin = latencyBetween ? Number(latencyBetween[1]) : -Infinity;
+  const latMax = latencyBetween ? Number(latencyBetween[2]) : Infinity;
 
   const matchedIndices: number[] = [];
   for (let i = 0; i < n; i += 1) {
     if (onlyAnomaly && dataset.isAnomaly[i] !== 1) continue;
-    if (regionMatch && REGIONS[dataset.regionIdx[i]] !== regionMatch[1]) continue;
-    if (minRisk >= 0 && dataset.riskScore[i] < minRisk) continue;
+    const region = REGIONS[dataset.regionIdx[i]];
+    if (regionMatch && region !== regionMatch[1]) continue;
+    if (regionInSet && !regionInSet.has(region)) continue;
+    const risk = dataset.riskScore[i];
+    if (minRisk >= 0 && risk < minRisk) continue;
+    if (risk < rMin || risk > rMax) continue;
+    const amt = dataset.amountUsd[i];
+    if (amt < amtMin || amt > amtMax) continue;
+    const lat = dataset.latencyMs[i];
+    if (lat < latMin || lat > latMax) continue;
     matchedIndices.push(i);
   }
 
@@ -360,17 +386,24 @@ export function runFallbackSql(
     matchedIndices.sort((a, b) => dataset.amountUsd[b] - dataset.amountUsd[a]);
   }
 
-  const rows = matchedIndices.slice(0, limit).map((i) => ({
-    tx_id: dataset.txId[i],
-    timestamp_utc: new Date(dataset.tsMs[i]).toISOString().replace('T', ' ').slice(0, 19),
-    store_id: `STR-${dataset.storeId[i]}`,
-    region: REGIONS[dataset.regionIdx[i]],
-    category: CATEGORIES[dataset.categoryIdx[i]],
-    amount_usd: Number(dataset.amountUsd[i].toFixed(2)),
-    risk_score: Number(dataset.riskScore[i].toFixed(4)),
-    latency_ms: dataset.latencyMs[i],
-    voucher_code: dataset.voucherIdx[i] >= 0 ? VOUCHER_CODES[dataset.voucherIdx[i]] : 'NONE',
-  }));
+  const includeAnomalyCol = /\bis_anomaly\b/i.test(clean);
+  const rows = matchedIndices.slice(0, limit).map((i) => {
+    const base: Record<string, unknown> = {
+      tx_id: dataset.txId[i],
+      timestamp_utc: new Date(dataset.tsMs[i]).toISOString().replace('T', ' ').slice(0, 19),
+      store_id: `STR-${dataset.storeId[i]}`,
+      region: REGIONS[dataset.regionIdx[i]],
+      category: CATEGORIES[dataset.categoryIdx[i]],
+      amount_usd: Number(dataset.amountUsd[i].toFixed(2)),
+      risk_score: Number(dataset.riskScore[i].toFixed(4)),
+      latency_ms: dataset.latencyMs[i],
+      voucher_code: dataset.voucherIdx[i] >= 0 ? VOUCHER_CODES[dataset.voucherIdx[i]] : 'NONE',
+    };
+    if (includeAnomalyCol) {
+      base.is_anomaly = dataset.isAnomaly[i] === 1;
+    }
+    return base;
+  });
 
   const elapsed = Math.max(0.2, performance.now() - start);
   return {
@@ -502,6 +535,75 @@ export class NexusDuckDbEngine {
 
     this.syncSyntheticSchema(data.rowCount);
     return Number((performance.now() - start).toFixed(1));
+  }
+
+  /**
+   * Appends a real-time CDC micro-batch via incremental Arrow IPC stream into DuckDB-WASM
+   * without dropping/reloading the full table.
+   */
+  public async appendTransactionsBatch(
+    batch: ColumnarTransactions,
+    updatedDataset: ColumnarTransactions,
+  ): Promise<number> {
+    const start = performance.now();
+    this.dataset = updatedDataset;
+
+    if (this.backend === 'DUCKDB-WASM' && this.conn) {
+      const ipcBytes = buildArrowIpcFromTransactions(batch);
+      await this.conn.query('DROP TABLE IF EXISTS transactions_cdc_stage;');
+      await this.conn.insertArrowFromIPCStream(ipcBytes, {
+        name: 'transactions_cdc_stage',
+        create: true,
+      });
+      await this.conn.query(`
+        INSERT INTO transactions
+        SELECT
+          tx_id,
+          CAST(ts AS TIMESTAMP) AS ts,
+          store_id,
+          region,
+          category,
+          CAST(amount_usd AS DOUBLE) AS amount_usd,
+          CAST(risk_score AS DOUBLE) AS risk_score,
+          latency_ms,
+          voucher_code,
+          is_anomaly,
+          x_coord,
+          y_coord
+        FROM transactions_cdc_stage;
+        DROP TABLE transactions_cdc_stage;
+      `);
+    }
+
+    this.syncSyntheticSchema(updatedDataset.rowCount);
+    return Number((performance.now() - start).toFixed(1));
+  }
+
+  /**
+   * Fetches DuckDB physical/logical EXPLAIN plan text for visualization in Query Plan & Arrow tab.
+   */
+  public async explainSql(sql: string): Promise<string | null> {
+    const clean = sql
+      .replace(/--[^\n]*/g, ' ')
+      .trim()
+      .replace(/;\s*$/, '');
+    if (!clean || /^EXPLAIN\b/i.test(clean)) return null;
+
+    if (this.backend === 'DUCKDB-WASM' && this.conn) {
+      try {
+        const res = await this.conn.query(`EXPLAIN ${clean}`);
+        const lines: string[] = [];
+        for (const item of res.toArray()) {
+          const obj = item.toJSON() as Record<string, unknown>;
+          const val = obj.explain_value ?? Object.values(obj).join(' ');
+          if (val) lines.push(String(val));
+        }
+        return lines.join('\n') || null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
   }
 
   public async ingestFile(fileName: string, content: string): Promise<TableSchemaInfo> {
