@@ -1,0 +1,27 @@
+{
+  "name": "@nexus-lake/mcp-lakehouse-server",
+  "version": "1.0.0",
+  "description": "Standalone Model Context Protocol (MCP) JSON-RPC 2.0 server for Nexus Lake with Stdio & Streamable HTTP transports, Zod validation, and read-only SQL AST guardrails.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "nexus-lake-mcp": "./dist/stdio.js",
+    "nexus-lake-mcp-http": "./dist/httpServer.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "start:stdio": "node dist/stdio.js",
+    "start:http": "node dist/httpServer.js"
+  },
+  "dependencies": {
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.4",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.6"
+  }
+}
