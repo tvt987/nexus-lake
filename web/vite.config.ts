@@ -73,8 +73,8 @@ export default defineConfig({
             return 'icons';
           }
           if (
-            normalized.includes('/src/engine/') ||
-            normalized.includes('/src/engines/')
+            (normalized.includes('/src/engine/') || normalized.includes('/src/engines/')) &&
+            !normalized.includes('dataQualityEngine')
           ) {
             return 'engines';
           }

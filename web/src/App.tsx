@@ -54,9 +54,17 @@ import { NlToSqlBar } from './components/NlToSqlBar';
 import { SqlNotebookPanel } from './components/SqlNotebookPanel';
 import { WebGpuAnomalyCanvas } from './components/WebGpuAnomalyCanvas';
 import { CdcLiveStrip } from './components/CdcLiveStrip';
-import { AguiCopilotDock } from './components/AguiCopilotDock';
 import { CommandPalette } from './components/CommandPalette';
 
+const AguiCopilotDock = lazy(() =>
+  import('./components/AguiCopilotDock').then((m) => ({ default: m.AguiCopilotDock })),
+);
+
+const DataQualityContractLab = lazy(() =>
+  import('./components/DataQualityContractLab').then((m) => ({
+    default: m.DataQualityContractLab,
+  })),
+);
 const SchemaLineageView = lazy(() =>
   import('./components/SchemaLineageView').then((m) => ({ default: m.SchemaLineageView })),
 );
@@ -117,8 +125,12 @@ function createInitialCells(): NotebookCell[] {
 }
 
 export function App() {
-  const [theme, setTheme] = useState<ThemeMode>('dark');
+  const [theme, setTheme] = useState<ThemeMode>('light');
   const [locale, setLocale] = useState<Locale>('en');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('workbench');
   const [cmdOpen, setCmdOpen] = useState(false);
   const [licenseOpen, setLicenseOpen] = useState(false);
@@ -450,7 +462,7 @@ export function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `nexus-lake-v4-snapshot-${Date.now()}.json`;
+    a.download = `nexus-lake-v5-snapshot-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }, [activeBrushBounds, cdcTelemetry, engineBackend, queryHistory]);
@@ -796,7 +808,7 @@ export function App() {
           onClearStorage={() => void handleClearStorage()}
         />
 
-        <main className="flex-1 min-w-0 p-3 sm:p-4 overflow-y-auto nexus-grid-bg space-y-4">
+        <main className="flex-1 min-w-0 p-4 sm:p-5 lg:p-6 overflow-y-auto nexus-grid-bg space-y-5">
           {activeTab === 'workbench' && (
             <>
               {(cdcTelemetry.isStreaming || cdcTelemetry.batchCount > 0) && (
@@ -885,17 +897,33 @@ export function App() {
                 </div>
               </div>
 
-              <AguiCopilotDock
-                copy={copy}
-                executeSql={executeSql}
-                onApplySql={(nextSql) => {
-                  void handleRunOnActiveCell(nextSql, 'copilot', 'AG-UI Copilot Dispatch');
-                }}
-                pinnedWidgets={pinnedWidgets}
-                onPinWidget={(w) => void handlePinWidget(w)}
-                onUnpinWidget={(id) => void handleUnpinWidget(id)}
-              />
+              <Suspense fallback={<LazyViewFallback label="AG-UI Copilot Dock" />}>
+                <AguiCopilotDock
+                  copy={copy}
+                  executeSql={executeSql}
+                  onApplySql={(nextSql) => {
+                    void handleRunOnActiveCell(nextSql, 'copilot', 'AG-UI Copilot Dispatch');
+                  }}
+                  pinnedWidgets={pinnedWidgets}
+                  onPinWidget={(w) => void handlePinWidget(w)}
+                  onUnpinWidget={(id) => void handleUnpinWidget(id)}
+                />
+              </Suspense>
             </>
+          )}
+
+          {activeTab === 'quality' && (
+            <Suspense fallback={<LazyViewFallback label="Data Quality & Freshness SLA Contracts" />}>
+              <DataQualityContractLab
+                copy={copy}
+                locale={locale}
+                datasetRowCount={dataset.rowCount}
+                onRunAuditSql={(auditSql, title) => {
+                  setActiveTab('workbench');
+                  void handleRunOnActiveCell(auditSql, 'manual', title, 'grid');
+                }}
+              />
+            </Suspense>
           )}
 
           {activeTab === 'lineage' && (

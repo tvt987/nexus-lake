@@ -50,22 +50,22 @@ const LAYER_META: Record<
   bronze: {
     label: 'BRONZE · RAW INGEST',
     shortTag: 'BRONZE',
-    stroke: '#f59e0b',
-    fillSoft: 'rgba(245, 158, 11, 0.14)',
+    stroke: 'var(--accent-amber)',
+    fillSoft: 'var(--accent-amber-soft)',
     textClass: 'text-[var(--accent-amber)]',
   },
   silver: {
     label: 'SILVER · CONFORMED',
     shortTag: 'SILVER',
-    stroke: '#06b6d4',
-    fillSoft: 'rgba(6, 182, 212, 0.14)',
+    stroke: 'var(--accent-cyan)',
+    fillSoft: 'var(--accent-cyan-soft)',
     textClass: 'text-[var(--accent-cyan)]',
   },
   gold: {
     label: 'GOLD · KPI MARTS',
     shortTag: 'GOLD',
-    stroke: '#10b981',
-    fillSoft: 'rgba(16, 185, 129, 0.14)',
+    stroke: 'var(--accent-emerald)',
+    fillSoft: 'var(--accent-emerald-soft)',
     textClass: 'text-[var(--accent-emerald)]',
   },
 };
@@ -77,9 +77,9 @@ function formatCompactRows(n: number): string {
 }
 
 function qualityColor(grade: LineageTableNode['qualityGrade']): string {
-  if (grade === 'A') return '#10b981';
-  if (grade === 'B') return '#f59e0b';
-  return '#ff5500';
+  if (grade === 'A') return 'var(--accent-emerald)';
+  if (grade === 'B') return 'var(--accent-amber)';
+  return 'var(--accent-crimson)';
 }
 
 export const SchemaLineageView: React.FC<SchemaLineageViewProps> = ({
@@ -358,7 +358,7 @@ export const SchemaLineageView: React.FC<SchemaLineageViewProps> = ({
                 markerHeight="7"
                 orient="auto-start-reverse"
               >
-                <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#06b6d4" />
+                <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="var(--accent-cyan)" />
               </marker>
               <marker
                 id="lineage-arrow-down"
@@ -369,7 +369,7 @@ export const SchemaLineageView: React.FC<SchemaLineageViewProps> = ({
                 markerHeight="7"
                 orient="auto-start-reverse"
               >
-                <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#ff5500" />
+                <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="var(--accent-signal)" />
               </marker>
             </defs>
 
@@ -433,9 +433,9 @@ export const SchemaLineageView: React.FC<SchemaLineageViewProps> = ({
               const hasSelection = highlight.selectedId !== null;
 
               const stroke = isUp
-                ? '#06b6d4'
+                ? 'var(--accent-cyan)'
                 : isDown
-                  ? '#ff5500'
+                  ? 'var(--accent-signal)'
                   : 'var(--border-strong)';
               const opacity = hasSelection ? (isUp || isDown ? 1 : 0.16) : 0.72;
               const markerEnd = isUp
@@ -508,11 +508,11 @@ export const SchemaLineageView: React.FC<SchemaLineageViewProps> = ({
                       : 'idle';
 
               const borderStroke = isSelected
-                ? '#f3f4f6'
+                ? 'var(--text-primary)'
                 : isUp
-                  ? '#06b6d4'
+                  ? 'var(--accent-cyan)'
                   : isDown
-                    ? '#ff5500'
+                    ? 'var(--accent-signal)'
                     : 'var(--border-strong)';
 
               const qColor = qualityColor(node.qualityGrade);
@@ -541,7 +541,7 @@ export const SchemaLineageView: React.FC<SchemaLineageViewProps> = ({
                       height={node.height + 6}
                       rx="9"
                       fill="none"
-                      stroke={isSelected ? meta.stroke : isUp ? '#06b6d4' : '#ff5500'}
+                      stroke={isSelected ? meta.stroke : isUp ? 'var(--accent-cyan)' : 'var(--accent-signal)'}
                       strokeWidth={isSelected ? 2 : 1.4}
                       strokeOpacity="0.6"
                     />
@@ -648,10 +648,10 @@ export const SchemaLineageView: React.FC<SchemaLineageViewProps> = ({
                     r="3"
                     fill={
                       node.refreshState === 'stale'
-                        ? '#f59e0b'
+                        ? 'var(--accent-amber)'
                         : node.refreshState === 'refreshed'
-                          ? '#10b981'
-                          : '#06b6d4'
+                          ? 'var(--accent-emerald)'
+                          : 'var(--accent-cyan)'
                     }
                   />
                   <text
@@ -704,7 +704,7 @@ export const SchemaLineageView: React.FC<SchemaLineageViewProps> = ({
                             x={node.x + 21}
                             y={rowY}
                             textAnchor="middle"
-                            fill="#06b6d4"
+                            fill="var(--accent-cyan)"
                             fontSize="7.5"
                             fontFamily="JetBrains Mono, monospace"
                             fontWeight="700"
@@ -788,7 +788,7 @@ export const SchemaLineageView: React.FC<SchemaLineageViewProps> = ({
                       cy={node.y + node.height / 2}
                       r="3.5"
                       fill="var(--bg-canvas)"
-                      stroke={isUp || isSelected ? '#06b6d4' : 'var(--border-strong)'}
+                      stroke={isUp || isSelected ? 'var(--accent-cyan)' : 'var(--border-strong)'}
                       strokeWidth="1.5"
                     />
                   )}
@@ -798,7 +798,7 @@ export const SchemaLineageView: React.FC<SchemaLineageViewProps> = ({
                       cy={node.y + node.height / 2}
                       r="3.5"
                       fill="var(--bg-canvas)"
-                      stroke={isDown || isSelected ? '#ff5500' : 'var(--border-strong)'}
+                      stroke={isDown || isSelected ? 'var(--accent-signal)' : 'var(--border-strong)'}
                       strokeWidth="1.5"
                     />
                   )}
@@ -943,10 +943,10 @@ export const SchemaLineageView: React.FC<SchemaLineageViewProps> = ({
                                     width: `${Math.min(100, Math.max(4, col.nullRatePct * 5))}%`,
                                     backgroundColor:
                                       col.nullRatePct < 1
-                                        ? '#10b981'
+                                        ? 'var(--accent-emerald)'
                                         : col.nullRatePct < 5
-                                          ? '#f59e0b'
-                                          : '#ff5500',
+                                          ? 'var(--accent-amber)'
+                                          : 'var(--accent-crimson)',
                                   }}
                                 />
                               </div>

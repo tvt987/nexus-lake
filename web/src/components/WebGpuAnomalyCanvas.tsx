@@ -108,17 +108,17 @@ void main() {
   if (dist > 1.0) discard;
   float alpha = 1.0 - smoothstep(0.6, 1.0, dist);
 
-  vec3 cyan = vec3(0.024, 0.714, 0.831);
-  vec3 amber = vec3(0.961, 0.620, 0.043);
-  vec3 signal = vec3(1.0, 0.333, 0.0);
+  vec3 teal = vec3(0.051, 0.580, 0.533);
+  vec3 amber = vec3(0.851, 0.467, 0.024);
+  vec3 crimson = vec3(0.863, 0.149, 0.149);
 
   if (v_risk >= 0.75) {
-    fragColor = vec4(signal, 0.92 * alpha);
+    fragColor = vec4(crimson, 0.90 * alpha);
   } else if (v_risk >= 0.50) {
-    vec3 col = mix(cyan, amber, (v_risk - 0.50) * 4.0);
-    fragColor = vec4(col, 0.64 * alpha);
+    vec3 col = mix(teal, amber, (v_risk - 0.50) * 4.0);
+    fragColor = vec4(col, 0.68 * alpha);
   } else {
-    fragColor = vec4(cyan, 0.42 * alpha);
+    fragColor = vec4(teal, 0.44 * alpha);
   }
 }`;
 
@@ -553,8 +553,8 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
           cPass.end();
 
           const bg = isDark
-            ? { r: 0.039, g: 0.047, b: 0.067, a: 1.0 }
-            : { r: 0.976, g: 0.969, b: 0.953, a: 1.0 };
+            ? { r: 0.043, g: 0.067, b: 0.125, a: 1.0 }
+            : { r: 0.973, g: 0.980, b: 0.988, a: 1.0 };
 
           const rPass = encoder.beginRenderPass({
             colorAttachments: [
@@ -574,8 +574,8 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
           device.queue.submit([encoder.finish()]);
         } else if (gl && glProgram && glVao) {
           gl.viewport(0, 0, canvas.width, canvas.height);
-          if (isDark) gl.clearColor(0.039, 0.047, 0.067, 1.0);
-          else gl.clearColor(0.976, 0.969, 0.953, 1.0);
+          if (isDark) gl.clearColor(0.043, 0.067, 0.125, 1.0);
+          else gl.clearColor(0.973, 0.980, 0.988, 1.0);
           gl.clear(gl.COLOR_BUFFER_BIT);
 
           gl.useProgram(glProgram);
@@ -593,10 +593,10 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
         } else if (ctx2d) {
           const w = canvas.width;
           const h = canvas.height;
-          ctx2d.fillStyle = isDark ? '#0A0C11' : '#F9F7F3';
+          ctx2d.fillStyle = isDark ? '#0B1120' : '#F8FAFC';
           ctx2d.fillRect(0, 0, w, h);
 
-          ctx2d.strokeStyle = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(15,23,42,0.06)';
+          ctx2d.strokeStyle = isDark ? 'rgba(148,163,184,0.08)' : 'rgba(15,23,42,0.06)';
           ctx2d.lineWidth = 1;
           for (let g = 1; g < 5; g += 1) {
             const gy = (h * g) / 5;
@@ -625,13 +625,13 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
             const y = uv.v * h;
 
             if (risk >= 0.75) {
-              ctx2d.fillStyle = 'rgba(255, 85, 0, 0.88)';
+              ctx2d.fillStyle = isDark ? 'rgba(244, 63, 94, 0.88)' : 'rgba(220, 38, 38, 0.88)';
               ctx2d.fillRect(x - sz * 0.6, y - sz * 0.6, sz * 1.4, sz * 1.4);
             } else if (risk >= 0.5) {
-              ctx2d.fillStyle = 'rgba(245, 158, 11, 0.55)';
+              ctx2d.fillStyle = isDark ? 'rgba(245, 158, 11, 0.58)' : 'rgba(217, 119, 6, 0.62)';
               ctx2d.fillRect(x, y, sz, sz);
             } else {
-              ctx2d.fillStyle = 'rgba(6, 182, 212, 0.36)';
+              ctx2d.fillStyle = isDark ? 'rgba(20, 184, 166, 0.40)' : 'rgba(13, 148, 136, 0.44)';
               ctx2d.fillRect(x, y, sz, sz);
             }
           }
@@ -935,15 +935,15 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
         <div className="pointer-events-none absolute top-2 left-2.5 font-mono-tech text-[9px] text-[var(--text-muted)] bg-[var(--bg-surface)]/85 px-1.5 py-0.5 rounded border border-[var(--border-hairline)]">
           Y: {filter.yAxisMode === 'risk_score' ? 'RISK SCORE (0-1)' : 'LATENCY (0-850ms)'}
         </div>
-        <div className="pointer-events-none absolute top-2 right-2.5 flex items-center gap-2 font-mono-tech text-[9px] bg-[var(--bg-surface)]/85 px-2 py-0.5 rounded border border-[var(--border-hairline)]">
+        <div className="pointer-events-none absolute top-2 right-2.5 flex items-center gap-2 font-mono-tech text-[9px] bg-[var(--bg-surface)]/90 px-2 py-0.5 rounded border border-[var(--border-hairline)]">
           <span className="flex items-center gap-1 text-[var(--text-secondary)]">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#06B6D4]" /> Nominal
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-cyan)]" /> Nominal
           </span>
           <span className="flex items-center gap-1 text-[var(--text-secondary)]">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" /> Watch
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-amber)]" /> Watch
           </span>
           <span className="flex items-center gap-1 text-[var(--text-secondary)]">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#FF5500]" /> Burst
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-crimson)]" /> Burst
           </span>
         </div>
 

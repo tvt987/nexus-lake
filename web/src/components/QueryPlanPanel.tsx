@@ -20,10 +20,10 @@ const OP_ACCENT: Record<string, string> = {
 };
 
 const BUFFER_COLORS = [
-  '#06B6D4',
-  '#FF5500',
-  '#10B981',
-  '#F59E0B',
+  '#2563EB',
+  '#0D9488',
+  '#059669',
+  '#D97706',
   '#6366F1',
   '#64748B',
 ];

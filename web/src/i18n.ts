@@ -80,15 +80,21 @@ export interface CopyDict {
   lineageTitle: string;
   lineageRefreshAll: string;
   costInspectorTitle: string;
+  // v5.0 DAYLIGHT ANALYTICS & DATA QUALITY CONTRACTS
+  tabQuality: string;
+  qualityTitle: string;
+  themeDaylight: string;
+  themeObsidian: string;
 }
 
 export const COPY: Record<Locale, CopyDict> = {
   en: {
-    subtitle: 'FULL-STACK FASTAPI + DUCKDB-WASM LAKEHOUSE & LINEAGE ERD',
-    tabWorkbench: 'SQL Notebook + GPU',
+    subtitle: 'DAYLIGHT ANALYTICS STUDIO · DATA QUALITY & DUCKDB-WASM LAKEHOUSE',
+    tabWorkbench: 'SQL Notebook',
+    tabQuality: 'Data Quality',
     tabLineage: 'Schema Lineage',
     tabIngest: 'Ingest & Profiler',
-    tabCohorts: 'Cohort Heatmap',
+    tabCohorts: 'Cohorts',
     tabMultiplayer: 'CRDT Lab',
     tabArchitecture: 'Architecture',
     cmdPalette: 'Command',
@@ -134,7 +140,7 @@ export const COPY: Record<Locale, CopyDict> = {
     enterpriseLicenseBtn: 'Enterprise · 14.9M',
     enterpriseModalTitle: 'ENTERPRISE LAKEHOUSE COMMISSIONING',
     enterpriseModalSubtitle:
-      'Deploy NEXUS LAKE v4.0 Full-Stack (Python FastAPI + DuckDB-WASM) inside your VPC with full source ownership, MCP Server & Principal Architect support.',
+      'Deploy NEXUS LAKE v5.0 Daylight Analytics Studio (Python FastAPI + DuckDB-WASM + Data Quality Contracts) inside your VPC with full source ownership, MCP Server & Principal Architect support.',
     nl2sqlTitle: 'NL-TO-SQL COPILOT (OFFLINE VI/EN)',
     nl2sqlPlaceholder:
       'Ask in English or Vietnamese: e.g. "Top 10 products by gross margin" or "Churned enterprise accounts > 50M VND"...',
@@ -165,13 +171,17 @@ export const COPY: Record<Locale, CopyDict> = {
     lineageTitle: 'MEDALLION DATA LINEAGE & SCHEMA ERD',
     lineageRefreshAll: 'Refresh All Layers',
     costInspectorTitle: 'MATERIALIZED VIEW REFRESH & QUERY PLAN COST',
+    qualityTitle: 'DATA QUALITY & FRESHNESS SLA CONTRACTS',
+    themeDaylight: 'Daylight',
+    themeObsidian: 'Obsidian',
   },
   vi: {
-    subtitle: 'KHO DỮ LIỆU FULL-STACK FASTAPI + DUCKDB-WASM & ĐỒ THỊ LINEAGE',
-    tabWorkbench: 'Sổ Tay SQL + GPU',
+    subtitle: 'DAYLIGHT ANALYTICS STUDIO · HỢP ĐỒNG CHẤT LƯỢNG & DUCKDB-WASM',
+    tabWorkbench: 'Sổ Tay SQL',
+    tabQuality: 'Chất Lượng Dữ Liệu',
     tabLineage: 'Lineage & ERD',
-    tabIngest: 'Nạp Dữ Liệu & Hồ Sơ',
-    tabCohorts: 'Bản Đồ Cohort',
+    tabIngest: 'Nạp Dữ Liệu',
+    tabCohorts: 'Cohort',
     tabMultiplayer: 'Lab CRDT',
     tabArchitecture: 'Kiến Trúc',
     cmdPalette: 'Lệnh nhanh',
@@ -217,7 +227,7 @@ export const COPY: Record<Locale, CopyDict> = {
     enterpriseLicenseBtn: 'Bản Quyền · 14.9M',
     enterpriseModalTitle: 'TRIỂN KHAI BẢN QUYỀN DOANH NGHIỆP',
     enterpriseModalSubtitle:
-      'Sở hữu trọn bộ mã nguồn NEXUS LAKE v4.0 Full-Stack (Python FastAPI + DuckDB-WASM) triển khai nội bộ VPC cùng MCP Server & hỗ trợ Solution Architect.',
+      'Sở hữu trọn bộ mã nguồn NEXUS LAKE v5.0 Full-Stack (Python FastAPI + DuckDB-WASM + Hợp đồng Chất lượng dbt) triển khai nội bộ VPC cùng MCP Server & hỗ trợ Solution Architect.',
     nl2sqlTitle: 'TRỢ LÝ NL-TO-SQL OFFLINE (VI/EN)',
     nl2sqlPlaceholder:
       'Nhập câu hỏi Tiếng Việt/Anh: vd "Top 10 sản phẩm biên lợi nhuận cao nhất" hoặc "Tài khoản doanh nghiệp rời bỏ > 50 triệu VND"...',
@@ -248,5 +258,8 @@ export const COPY: Record<Locale, CopyDict> = {
     lineageTitle: 'ĐỒ THỊ LINEAGE MEDALLION & LƯỢC ĐỒ ERD',
     lineageRefreshAll: 'Làm Mới Toàn Bộ Tầng',
     costInspectorTitle: 'LÀM MỚI MATERIALIZED VIEW & CHI PHÍ TRUY VẤN',
+    qualityTitle: 'HỢP ĐỒNG CHẤT LƯỢNG DỮ LIỆU & SLA ĐỘ TƯƠI',
+    themeDaylight: 'Daylight',
+    themeObsidian: 'Obsidian',
   },
 };

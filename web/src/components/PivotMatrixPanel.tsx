@@ -218,8 +218,8 @@ export const PivotMatrixPanel: React.FC<PivotMatrixPanelProps> = ({
                       style={{
                         backgroundColor: hasVal
                           ? norm >= 0.82
-                            ? `rgba(255, 85, 0, ${bgAlpha})`
-                            : `rgba(6, 182, 212, ${bgAlpha})`
+                            ? `rgba(37, 99, 235, ${bgAlpha})`
+                            : `rgba(13, 148, 136, ${bgAlpha})`
                           : undefined,
                       }}
                     >

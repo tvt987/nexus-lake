@@ -1,3 +1,3 @@
-"""Nexus Lake v4.0 Analytical Lakehouse FastAPI Backend."""
+"""Nexus Lake v5.0 Analytical Lakehouse & Data Quality Contract FastAPI Backend."""
 
-__version__ = "4.0.0"
+__version__ = "5.0.0"

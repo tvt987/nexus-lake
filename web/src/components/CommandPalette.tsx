@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  BadgeCheck,
   Database,
   FileUp,
   Flame,
@@ -80,10 +81,21 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         },
       },
       {
+        id: 'nav-quality',
+        group: 'VIEW',
+        label: 'Open Data Quality & Freshness SLA Contracts (dbt-test / Chaos Lab)',
+        hint: 'TAB 2',
+        icon: BadgeCheck,
+        run: () => {
+          onSwitchTab('quality');
+          onClose();
+        },
+      },
+      {
         id: 'nav-lineage',
         group: 'VIEW',
         label: 'Open Medallion Schema Lineage ERD & Materialized View Cost Inspector',
-        hint: 'TAB 2',
+        hint: 'TAB 3',
         icon: GitFork,
         run: () => {
           onSwitchTab('lineage');

@@ -1,11 +1,12 @@
 openapi: 3.1.0
 info:
-  title: Nexus Lake v4.0 Analytical Lakehouse API
-  version: 4.0.0
+  title: Nexus Lake v5.0 Analytical Lakehouse & Data Quality API
+  version: 5.0.0
   description: >
     Read-only guarded SQLite Medallion Lakehouse execution engine, Bronze/Silver/Gold
-    Data Lineage DAG catalog, Materialized View refresh orchestrator, and statistical
-    CSV ingestion profiler.
+    Data Lineage DAG catalog, Materialized View refresh orchestrator, statistical
+    CSV ingestion profiler, and real-time dbt-test / Great Expectations Data Quality
+    & Freshness SLA Contract Engine.
   contact:
     name: Truong Van Tinh (TVT Studio)
     email: tinhkun102@gmail.com
@@ -27,6 +28,8 @@ tags:
     description: Dual-layer guarded read-only SELECT/WITH SQL execution with EXPLAIN QUERY PLAN
   - name: Ingestion
     description: CSV schema type inference, null-rate telemetry, and anomaly profiling
+  - name: Data Quality
+    description: Deterministic dbt-test / Great Expectations contract evaluation, quarantine counts, freshness SLA breach telemetry, and schema.yml export
 
 paths:
   /health:
@@ -128,6 +131,27 @@ paths:
         '422':
           description: Request payload failed Pydantic validation
 
+  /api/v1/quality/evaluate-contracts:
+    post:
+      tags: [Data Quality]
+      summary: Evaluate dbt-test / Great Expectations quality & freshness SLA contracts
+      operationId: evaluateQualityContracts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QualityContractEvalRequest'
+      responses:
+        '200':
+          description: Contract evaluation complete with Data Trust Score, quarantined row counts, SLA breaches, 24h timeline, and dbt schema.yml
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QualityContractEvalResponse'
+        '422':
+          description: Request payload failed Pydantic validation
+
 components:
   schemas:
     HealthResponse:
@@ -142,7 +166,7 @@ components:
           example: nexus-lake-api
         version:
           type: string
-          example: 4.0.0
+          example: 5.0.0
         engine:
           type: string
           example: sqlite3-readonly-lakehouse
@@ -458,3 +482,286 @@ components:
       properties:
         detail:
           type: string
+
+    ChaosInjectionFlags:
+      type: object
+      properties:
+        null_store_id_pct:
+          type: number
+          minimum: 0
+          maximum: 100
+          default: 0.0
+          example: 1.8
+        duplicate_voucher_count:
+          type: integer
+          minimum: 0
+          maximum: 200000
+          default: 0
+          example: 412
+        kafka_cdc_lag_minutes:
+          type: number
+          minimum: 0
+          maximum: 1440
+          default: 0.0
+          example: 45.0
+        out_of_range_amount_count:
+          type: integer
+          minimum: 0
+          maximum: 200000
+          default: 0
+        orphan_fk_count:
+          type: integer
+          minimum: 0
+          maximum: 200000
+          default: 0
+
+    CustomContractRule:
+      type: object
+      required: [rule_id, table, column, rule_type, observed_value]
+      properties:
+        rule_id:
+          type: string
+        table:
+          type: string
+        column:
+          type: string
+        rule_type:
+          type: string
+          enum: [not_null, unique, accepted_range, referential_integrity, freshness_sla_minutes]
+        observed_value:
+          type: number
+        warn_threshold:
+          type: number
+          default: 0.1
+        fail_threshold:
+          type: number
+          default: 0.5
+        failed_rows:
+          type: integer
+          default: 0
+        min_value:
+          type: [number, 'null']
+        max_value:
+          type: [number, 'null']
+        reference_table:
+          type: [string, 'null']
+        reference_column:
+          type: [string, 'null']
+        sla_minutes:
+          type: [number, 'null']
+        weight:
+          type: number
+          default: 8.0
+
+    QualityContractEvalRequest:
+      type: object
+      properties:
+        dataset_scale:
+          type: integer
+          minimum: 100
+          maximum: 10000000
+          default: 100000
+        chaos_flags:
+          $ref: '#/components/schemas/ChaosInjectionFlags'
+        tables_filter:
+          type: [array, 'null']
+          items:
+            type: string
+        custom_rules:
+          type: array
+          maxItems: 25
+          items:
+            $ref: '#/components/schemas/CustomContractRule'
+
+    AssertionEvaluationResult:
+      type: object
+      required:
+        - rule_id
+        - table
+        - layer
+        - column
+        - rule_type
+        - dbt_test_name
+        - status
+        - threshold_label
+        - observed_value
+        - observed_label
+        - failed_rows
+        - quarantined_rows
+        - sla_breached
+        - weight
+        - penalty
+        - remediation_sql
+      properties:
+        rule_id:
+          type: string
+        table:
+          type: string
+        layer:
+          type: string
+          enum: [bronze, silver, gold]
+        column:
+          type: string
+        rule_type:
+          type: string
+          enum: [not_null, unique, accepted_range, referential_integrity, freshness_sla_minutes]
+        dbt_test_name:
+          type: string
+        status:
+          type: string
+          enum: [PASS, WARN, CRITICAL_FAIL]
+        threshold_label:
+          type: string
+        observed_value:
+          type: number
+        observed_label:
+          type: string
+        failed_rows:
+          type: integer
+        quarantined_rows:
+          type: integer
+        sla_breached:
+          type: boolean
+        weight:
+          type: number
+        penalty:
+          type: number
+        remediation_sql:
+          type: string
+
+    SlaBreachModel:
+      type: object
+      required: [table, layer, observed_lag_minutes, sla_limit_minutes, excess_minutes, status]
+      properties:
+        table:
+          type: string
+        layer:
+          type: string
+          enum: [bronze, silver, gold]
+        observed_lag_minutes:
+          type: number
+        sla_limit_minutes:
+          type: number
+        excess_minutes:
+          type: number
+        status:
+          type: string
+          enum: [PASS, WARN, CRITICAL_FAIL]
+
+    TableQualitySummaryModel:
+      type: object
+      required:
+        - table
+        - layer
+        - row_count
+        - trust_score
+        - freshness_lag_minutes
+        - sla_limit_minutes
+        - passed_assertions
+        - warn_assertions
+        - failed_assertions
+        - quarantined_rows
+        - status
+      properties:
+        table:
+          type: string
+        layer:
+          type: string
+          enum: [bronze, silver, gold]
+        row_count:
+          type: integer
+        trust_score:
+          type: number
+        freshness_lag_minutes:
+          type: number
+        sla_limit_minutes:
+          type: number
+        passed_assertions:
+          type: integer
+        warn_assertions:
+          type: integer
+        failed_assertions:
+          type: integer
+        quarantined_rows:
+          type: integer
+        status:
+          type: string
+          enum: [PASS, WARN, CRITICAL_FAIL]
+
+    QualityTimelinePointModel:
+      type: object
+      required: [hour_index, hour_label, trust_score, freshness_lag_minutes, quarantined_rows, sla_breached]
+      properties:
+        hour_index:
+          type: integer
+        hour_label:
+          type: string
+        trust_score:
+          type: number
+        freshness_lag_minutes:
+          type: number
+        quarantined_rows:
+          type: integer
+        sla_breached:
+          type: boolean
+
+    QualityContractEvalResponse:
+      type: object
+      required:
+        - data_trust_score
+        - overall_status
+        - total_rules
+        - passed_rules
+        - warn_rules
+        - failed_rules
+        - total_quarantined_rows
+        - sla_breach_count
+        - sla_breaches
+        - table_summaries
+        - assertions
+        - timeline_24h
+        - dbt_schema_yaml
+        - evaluated_at
+        - evaluation_ms
+      properties:
+        data_trust_score:
+          type: number
+          example: 80.5
+        overall_status:
+          type: string
+          enum: [HEALTHY, DEGRADED, CRITICAL]
+        total_rules:
+          type: integer
+        passed_rules:
+          type: integer
+        warn_rules:
+          type: integer
+        failed_rules:
+          type: integer
+        total_quarantined_rows:
+          type: integer
+        sla_breach_count:
+          type: integer
+        sla_breaches:
+          type: array
+          items:
+            $ref: '#/components/schemas/SlaBreachModel'
+        table_summaries:
+          type: array
+          items:
+            $ref: '#/components/schemas/TableQualitySummaryModel'
+        assertions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssertionEvaluationResult'
+        timeline_24h:
+          type: array
+          items:
+            $ref: '#/components/schemas/QualityTimelinePointModel'
+        dbt_schema_yaml:
+          type: string
+        evaluated_at:
+          type: string
+          format: date-time
+        evaluation_ms:
+          type: number

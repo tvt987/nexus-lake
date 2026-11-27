@@ -29,28 +29,28 @@ function formatMrrVnd(val: number): string {
 
 function getHeatColor(mode: CohortMetricMode, cell: CohortCellMetric): { fill: string; text: string } {
   if (mode === 'nrr_pct') {
-    if (cell.nrrPct >= 112) return { fill: 'rgba(16, 185, 129, 0.36)', text: 'var(--text-primary)' };
-    if (cell.nrrPct >= 100) return { fill: 'rgba(16, 185, 129, 0.22)', text: 'var(--text-primary)' };
-    if (cell.nrrPct >= 88) return { fill: 'rgba(6, 182, 212, 0.22)', text: 'var(--text-primary)' };
-    if (cell.nrrPct >= 74) return { fill: 'rgba(245, 158, 11, 0.22)', text: 'var(--text-primary)' };
-    return { fill: 'rgba(255, 85, 0, 0.26)', text: 'var(--text-primary)' };
+    if (cell.nrrPct >= 112) return { fill: 'rgba(16, 185, 129, 0.30)', text: 'var(--text-primary)' };
+    if (cell.nrrPct >= 100) return { fill: 'rgba(16, 185, 129, 0.18)', text: 'var(--text-primary)' };
+    if (cell.nrrPct >= 88) return { fill: 'rgba(13, 148, 136, 0.18)', text: 'var(--text-primary)' };
+    if (cell.nrrPct >= 74) return { fill: 'rgba(217, 119, 6, 0.20)', text: 'var(--text-primary)' };
+    return { fill: 'rgba(220, 38, 38, 0.20)', text: 'var(--text-primary)' };
   }
 
   if (mode === 'expansion_vnd') {
     const m = cell.expansionVnd / 1_000_000;
-    if (m >= 250) return { fill: 'rgba(16, 185, 129, 0.36)', text: 'var(--text-primary)' };
-    if (m >= 120) return { fill: 'rgba(16, 185, 129, 0.24)', text: 'var(--text-primary)' };
-    if (m >= 40) return { fill: 'rgba(6, 182, 212, 0.22)', text: 'var(--text-primary)' };
-    if (m > 0) return { fill: 'rgba(6, 182, 212, 0.12)', text: 'var(--text-secondary)' };
-    return { fill: 'rgba(148, 163, 184, 0.08)', text: 'var(--text-muted)' };
+    if (m >= 250) return { fill: 'rgba(16, 185, 129, 0.30)', text: 'var(--text-primary)' };
+    if (m >= 120) return { fill: 'rgba(16, 185, 129, 0.20)', text: 'var(--text-primary)' };
+    if (m >= 40) return { fill: 'rgba(37, 99, 235, 0.18)', text: 'var(--text-primary)' };
+    if (m > 0) return { fill: 'rgba(37, 99, 235, 0.10)', text: 'var(--text-secondary)' };
+    return { fill: 'rgba(148, 163, 184, 0.10)', text: 'var(--text-muted)' };
   }
 
   // Logo retention %
-  if (cell.retentionPct >= 95) return { fill: 'rgba(6, 182, 212, 0.36)', text: 'var(--text-primary)' };
-  if (cell.retentionPct >= 85) return { fill: 'rgba(6, 182, 212, 0.24)', text: 'var(--text-primary)' };
-  if (cell.retentionPct >= 75) return { fill: 'rgba(16, 185, 129, 0.22)', text: 'var(--text-primary)' };
-  if (cell.retentionPct >= 65) return { fill: 'rgba(245, 158, 11, 0.22)', text: 'var(--text-primary)' };
-  return { fill: 'rgba(255, 85, 0, 0.26)', text: 'var(--text-primary)' };
+  if (cell.retentionPct >= 95) return { fill: 'rgba(37, 99, 235, 0.26)', text: 'var(--text-primary)' };
+  if (cell.retentionPct >= 85) return { fill: 'rgba(13, 148, 136, 0.22)', text: 'var(--text-primary)' };
+  if (cell.retentionPct >= 75) return { fill: 'rgba(16, 185, 129, 0.19)', text: 'var(--text-primary)' };
+  if (cell.retentionPct >= 65) return { fill: 'rgba(217, 119, 6, 0.20)', text: 'var(--text-primary)' };
+  return { fill: 'rgba(220, 38, 38, 0.20)', text: 'var(--text-primary)' };
 }
 
 export const CohortHeatmapPanel: React.FC<CohortHeatmapPanelProps> = ({

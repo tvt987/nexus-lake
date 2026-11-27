@@ -240,7 +240,8 @@ const BarChartSvg: React.FC<ChartSvgProps> = ({ model, hoveredIdx, onHover }) =>
               y={padT}
               width={slotW}
               height={plotH}
-              fill={isHovered ? 'rgba(255,255,255,0.03)' : 'transparent'}
+              fill={isHovered ? 'var(--bg-elevated)' : 'transparent'}
+              opacity={isHovered ? 0.55 : 0}
             />
             <rect
               x={x}

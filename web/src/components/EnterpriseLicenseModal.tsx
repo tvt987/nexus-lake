@@ -26,13 +26,13 @@ interface EnterpriseLicenseModalProps {
 
 const DELIVERABLES = {
   en: [
-    'Complete NEXUS LAKE v4.0 Full-Stack (Python 3.12 FastAPI + DuckDB-WASM + WebGPU) Source Ownership',
+    'Complete NEXUS LAKE v5.0 Daylight Analytics Studio (Python 3.12 FastAPI + DuckDB-WASM + Data Quality Contracts)',
     'Production MCP Lakehouse Server (stdio + Streamable HTTP) + Dual-Layer Read-Only SQL Guardrail',
     'Custom Parquet / S3 / PostgreSQL / SQL Server CDC Connector Setup & Docker VPC Hardening',
     '90-Day Direct Solution Architect SLA Support (Truong Van Tinh · TVT Studio)',
   ],
   vi: [
-    'Bàn giao trọn bộ mã nguồn NEXUS LAKE v4.0 Full-Stack (Python 3.12 FastAPI + DuckDB-WASM + WebGPU)',
+    'Bàn giao trọn bộ mã nguồn NEXUS LAKE v5.0 Full-Stack (Python 3.12 FastAPI + DuckDB-WASM + Hợp đồng Chất lượng dbt)',
     'MCP Lakehouse Server chuẩn doanh nghiệp (stdio + Streamable HTTP) kèm tường lửa SQL AST 2 lớp',
     'Tích hợp kết nối Parquet / S3 / PostgreSQL / SQL Server CDC & triển khai Docker VPC bảo mật',
     '90 ngày đồng hành SLA trực tiếp cùng Solution Architect (Trương Văn Tình · TVT Studio)',

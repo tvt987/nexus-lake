@@ -1,4 +1,4 @@
-"""FastAPI Application exposing Nexus Lake v4.0 Analytical Lakehouse Endpoints."""
+"""FastAPI Application exposing Nexus Lake v5.0 Analytical Lakehouse & Quality Contract Endpoints."""
 
 from __future__ import annotations
 
@@ -16,6 +16,11 @@ from .lakehouse import (
     SqlExecutionError,
     SqlGuardViolationError,
     profile_csv_content,
+)
+from .quality_contracts import (
+    QualityContractEvalRequest,
+    QualityContractEvalResponse,
+    evaluate_quality_contracts,
 )
 
 
@@ -163,11 +168,12 @@ def create_app(db_path: str | None = None) -> FastAPI:
     engine = NexusLakehouseEngine(db_path=resolved_db)
 
     app = FastAPI(
-        title="Nexus Lake v4.0 Analytical Lakehouse API",
+        title="Nexus Lake v5.0 Analytical Lakehouse & Data Quality API",
         version=__version__,
         description=(
             "Read-only guarded SQLite Medallion Lakehouse execution engine, "
-            "Bronze/Silver/Gold Lineage DAG catalog, and CSV statistical schema profiler."
+            "Bronze/Silver/Gold Lineage DAG catalog, CSV statistical schema profiler, "
+            "and real-time dbt-test / Great Expectations Data Quality & Freshness SLA Contract Engine."
         ),
     )
 
@@ -245,6 +251,16 @@ def create_app(db_path: str | None = None) -> FastAPI:
             return profile_csv_content(payload.csv_content, table_name=payload.table_name)
         except CsvProfilingError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post(
+        "/api/v1/quality/evaluate-contracts",
+        response_model=QualityContractEvalResponse,
+        tags=["Data Quality"],
+    )
+    def post_evaluate_quality_contracts(
+        payload: QualityContractEvalRequest,
+    ) -> QualityContractEvalResponse:
+        return evaluate_quality_contracts(payload)
 
     return app
 

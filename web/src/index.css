@@ -1,48 +1,58 @@
 @import "tailwindcss";
 
+/* MotherDuck / Hex-inspired Crisp Daylight Paper (Default Boot Theme) */
 :root,
-[data-theme="dark"] {
-  --bg-canvas: #07080b;
-  --bg-surface: #0e1117;
-  --bg-elevated: #141923;
-  --bg-inset: #0a0c11;
-  --border-hairline: rgba(255, 255, 255, 0.09);
-  --border-strong: rgba(255, 255, 255, 0.17);
-  --text-primary: #f3f4f6;
-  --text-secondary: #cbd5e1;
-  --text-muted: #8b949e;
-  --accent-signal: #ff5500;
-  --accent-signal-soft: rgba(255, 85, 0, 0.14);
-  --accent-cyan: #06b6d4;
-  --accent-cyan-soft: rgba(6, 182, 212, 0.14);
-  --accent-emerald: #10b981;
-  --accent-emerald-soft: rgba(16, 185, 129, 0.14);
-  --accent-amber: #f59e0b;
-  --grid-dot: rgba(255, 255, 255, 0.04);
-  --shadow-panel: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 12px 30px rgba(0, 0, 0, 0.45);
-  color-scheme: dark;
-}
-
 [data-theme="light"] {
-  --bg-canvas: #f5f3ee;
+  --bg-canvas: #f8fafc;
   --bg-surface: #ffffff;
-  --bg-elevated: #eeeae1;
-  --bg-inset: #f9f7f3;
-  --border-hairline: rgba(15, 23, 42, 0.11);
-  --border-strong: rgba(15, 23, 42, 0.22);
+  --bg-elevated: #f1f5f9;
+  --bg-inset: #f8fafc;
+  --border-hairline: rgba(15, 23, 42, 0.10);
+  --border-strong: rgba(15, 23, 42, 0.20);
   --text-primary: #0f172a;
   --text-secondary: #334155;
   --text-muted: #64748b;
-  --accent-signal: #e04800;
-  --accent-signal-soft: rgba(224, 72, 0, 0.11);
-  --accent-cyan: #0284c7;
-  --accent-cyan-soft: rgba(2, 132, 199, 0.12);
+  --accent-signal: #2563eb;
+  --accent-signal-soft: rgba(37, 99, 235, 0.10);
+  --accent-cyan: #0d9488;
+  --accent-cyan-soft: rgba(13, 148, 136, 0.11);
+  --text-on-cyan: #ffffff;
   --accent-emerald: #059669;
-  --accent-emerald-soft: rgba(5, 150, 105, 0.12);
+  --accent-emerald-soft: rgba(5, 150, 105, 0.11);
   --accent-amber: #d97706;
-  --grid-dot: rgba(15, 23, 42, 0.05);
-  --shadow-panel: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px rgba(15, 23, 42, 0.05);
+  --accent-amber-soft: rgba(217, 119, 6, 0.12);
+  --accent-crimson: #dc2626;
+  --accent-crimson-soft: rgba(220, 38, 38, 0.10);
+  --grid-dot: rgba(15, 23, 42, 0.055);
+  --shadow-panel: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.045);
   color-scheme: light;
+}
+
+/* Obsidian Lakehouse Mode (1-Click High-Contrast Dark Theme) */
+[data-theme="dark"] {
+  --bg-canvas: #090d16;
+  --bg-surface: #0f172a;
+  --bg-elevated: #1e293b;
+  --bg-inset: #0b1120;
+  --border-hairline: rgba(148, 163, 184, 0.15);
+  --border-strong: rgba(148, 163, 184, 0.30);
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --accent-signal: #3b82f6;
+  --accent-signal-soft: rgba(59, 130, 246, 0.17);
+  --accent-cyan: #14b8a6;
+  --accent-cyan-soft: rgba(20, 184, 166, 0.16);
+  --text-on-cyan: #042f2e;
+  --accent-emerald: #10b981;
+  --accent-emerald-soft: rgba(16, 185, 129, 0.16);
+  --accent-amber: #f59e0b;
+  --accent-amber-soft: rgba(245, 158, 11, 0.16);
+  --accent-crimson: #f43f5e;
+  --accent-crimson-soft: rgba(244, 63, 94, 0.16);
+  --grid-dot: rgba(148, 163, 184, 0.06);
+  --shadow-panel: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 12px 30px rgba(0, 0, 0, 0.42);
+  color-scheme: dark;
 }
 
 * {
@@ -76,7 +86,7 @@ body,
   font-variant-numeric: tabular-nums;
 }
 
-/* Swiss subtle instrument panel */
+/* Crisp cloud analytics panel */
 .nexus-panel {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-hairline);
@@ -106,7 +116,7 @@ body,
 
 .nexus-grid-bg {
   background-image: radial-gradient(var(--grid-dot) 1px, transparent 1px);
-  background-size: 16px 16px;
+  background-size: 18px 18px;
 }
 
 /* View Transitions API Circular Wipe */

@@ -32,7 +32,7 @@ def test_health_endpoint_returns_service_metadata(client: TestClient) -> None:
     body = resp.json()
     assert body["status"] == "ok"
     assert body["service"] == "nexus-lake-api"
-    assert body["version"] == "4.0.0"
+    assert body["version"] == "5.0.0"
     assert body["tables_loaded"] == 6
     assert body["uptime_ms"] >= 0
     assert resp.headers.get("x-content-type-options") == "nosniff"

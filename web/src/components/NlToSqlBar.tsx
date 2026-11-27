@@ -87,7 +87,7 @@ export const NlToSqlBar: React.FC<NlToSqlBarProps> = ({
             type="submit"
             data-testid="nl2sql-compile-btn"
             disabled={isBusy || !prompt.trim()}
-            className="px-3 py-1.5 rounded bg-[var(--accent-cyan)] hover:brightness-110 text-[#07080B] font-mono-tech text-[11px] font-semibold flex items-center gap-1.5 disabled:opacity-45 transition-all cursor-pointer shrink-0"
+            className="px-3 py-1.5 rounded bg-[var(--accent-cyan)] hover:brightness-110 text-[var(--text-on-cyan)] font-mono-tech text-[11px] font-semibold flex items-center gap-1.5 disabled:opacity-45 transition-all cursor-pointer shrink-0"
           >
             <span>{copy.nl2sqlCompileRun}</span>
             <ArrowRight className="w-3 h-3" />

@@ -4,6 +4,7 @@ export type EngineBackend = 'DUCKDB-WASM' | 'FALLBACK-OLAP';
 export type RendererBackend = 'WEBGPU WGSL' | 'WEBGL2 FALLBACK' | 'CANVAS2D FALLBACK';
 export type WorkspaceTab =
   | 'workbench'
+  | 'quality'
   | 'lineage'
   | 'ingest'
   | 'cohorts'
@@ -567,4 +568,99 @@ export interface IncrementalRefreshResult {
   peakMemoryMb: number;
   totalDurationMs: number;
   refreshedAt: string;
+}
+
+// v5.0 Data Quality & Freshness SLA Contract Engine (dbt-test / Great Expectations)
+export type DataQualityRuleType =
+  | 'not_null'
+  | 'unique'
+  | 'accepted_range'
+  | 'referential_integrity'
+  | 'freshness_sla_minutes';
+
+export type DataQualityStatus = 'PASS' | 'WARN' | 'CRITICAL_FAIL';
+export type DataQualityOverallStatus = 'HEALTHY' | 'DEGRADED' | 'CRITICAL';
+export type QualityContractTableId = 'bronze_orders' | 'silver_vouchers' | 'gold_store_kpis';
+export type QualityChaosId =
+  | 'null_store_id'
+  | 'duplicate_vouchers'
+  | 'kafka_cdc_lag';
+
+export interface DataQualityChaosState {
+  nullStoreIdPct: number; // 0 or 1.8
+  duplicateVoucherCount: number; // 0 or 412
+  kafkaCdcLagMinutes: number; // 0 or 45
+  outOfRangeAmountCount: number;
+  orphanFkCount: number;
+}
+
+export interface DataQualityAssertion {
+  ruleId: string;
+  table: QualityContractTableId;
+  layer: MedallionLayer;
+  column: string;
+  ruleType: DataQualityRuleType;
+  dbtTestName: string;
+  geExpectation: string;
+  status: DataQualityStatus;
+  thresholdLabel: string;
+  observedValue: number;
+  observedLabel: string;
+  failedRows: number;
+  quarantinedRows: number;
+  slaBreached: boolean;
+  weight: number;
+  penalty: number;
+  remediationSql: string;
+}
+
+export interface DataQualitySlaBreach {
+  table: QualityContractTableId;
+  layer: MedallionLayer;
+  observedLagMinutes: number;
+  slaLimitMinutes: number;
+  excessMinutes: number;
+  status: DataQualityStatus;
+}
+
+export interface DataQualityTableSummary {
+  table: QualityContractTableId;
+  layer: MedallionLayer;
+  description: string;
+  rowCount: number;
+  trustScore: number;
+  freshnessLagMinutes: number;
+  slaLimitMinutes: number;
+  passedAssertions: number;
+  warnAssertions: number;
+  failedAssertions: number;
+  quarantinedRows: number;
+  status: DataQualityStatus;
+}
+
+export interface QualityTimelinePoint {
+  hourIndex: number;
+  hourLabel: string;
+  trustScore: number;
+  freshnessLagMinutes: number;
+  quarantinedRows: number;
+  slaBreached: boolean;
+}
+
+export interface DataQualityContractReport {
+  dataTrustScore: number;
+  overallStatus: DataQualityOverallStatus;
+  totalRules: number;
+  passedRules: number;
+  warnRules: number;
+  failedRules: number;
+  totalQuarantinedRows: number;
+  slaBreachCount: number;
+  slaBreaches: DataQualitySlaBreach[];
+  tableSummaries: DataQualityTableSummary[];
+  assertions: DataQualityAssertion[];
+  timeline24h: QualityTimelinePoint[];
+  dbtSchemaYaml: string;
+  evaluatedAt: string;
+  activeChaosIds: QualityChaosId[];
 }
