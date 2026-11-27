@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { COPY } from './i18n';
 import {
   appendCdcBatch,
@@ -52,15 +52,39 @@ import { TopBar } from './components/TopBar';
 import { SidebarCatalog } from './components/SidebarCatalog';
 import { NlToSqlBar } from './components/NlToSqlBar';
 import { SqlNotebookPanel } from './components/SqlNotebookPanel';
-import { DataIngestStudio } from './components/DataIngestStudio';
-import { CohortHeatmapPanel } from './components/CohortHeatmapPanel';
 import { WebGpuAnomalyCanvas } from './components/WebGpuAnomalyCanvas';
 import { CdcLiveStrip } from './components/CdcLiveStrip';
 import { AguiCopilotDock } from './components/AguiCopilotDock';
-import { CrdtMultiplayerLab } from './components/CrdtMultiplayerLab';
-import { ArchitectureInspector } from './components/ArchitectureInspector';
 import { CommandPalette } from './components/CommandPalette';
-import { EnterpriseLicenseModal } from './components/EnterpriseLicenseModal';
+
+const SchemaLineageView = lazy(() =>
+  import('./components/SchemaLineageView').then((m) => ({ default: m.SchemaLineageView })),
+);
+const DataIngestStudio = lazy(() =>
+  import('./components/DataIngestStudio').then((m) => ({ default: m.DataIngestStudio })),
+);
+const CohortHeatmapPanel = lazy(() =>
+  import('./components/CohortHeatmapPanel').then((m) => ({ default: m.CohortHeatmapPanel })),
+);
+const CrdtMultiplayerLab = lazy(() =>
+  import('./components/CrdtMultiplayerLab').then((m) => ({ default: m.CrdtMultiplayerLab })),
+);
+const ArchitectureInspector = lazy(() =>
+  import('./components/ArchitectureInspector').then((m) => ({
+    default: m.ArchitectureInspector,
+  })),
+);
+const EnterpriseLicenseModal = lazy(() =>
+  import('./components/EnterpriseLicenseModal').then((m) => ({
+    default: m.EnterpriseLicenseModal,
+  })),
+);
+
+const LazyViewFallback: React.FC<{ label: string }> = ({ label }) => (
+  <div className="nexus-panel rounded-md p-8 flex items-center justify-center font-mono-tech text-xs text-[var(--text-muted)]">
+    Loading {label}...
+  </div>
+);
 
 const INITIAL_ROWS = 100_000;
 const CDC_TICK_MS = 900;
@@ -426,7 +450,7 @@ export function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `nexus-lake-v3-snapshot-${Date.now()}.json`;
+    a.download = `nexus-lake-v4-snapshot-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }, [activeBrushBounds, cdcTelemetry, engineBackend, queryHistory]);
@@ -848,14 +872,16 @@ export function App() {
                     onApplyBrushSql={handleApplyBrushSql}
                     onBrushChange={setActiveBrushBounds}
                   />
-                  <CohortHeatmapPanel
-                    copy={copy}
-                    locale={locale}
-                    sourceRows={saasCohortRows}
-                    compact
-                    onExpandFull={() => setActiveTab('cohorts')}
-                    onDrilldownSql={(drillSql, title) => void handleCohortDrilldown(drillSql, title)}
-                  />
+                  <Suspense fallback={<LazyViewFallback label="Cohort Retention Heatmap" />}>
+                    <CohortHeatmapPanel
+                      copy={copy}
+                      locale={locale}
+                      sourceRows={saasCohortRows}
+                      compact
+                      onExpandFull={() => setActiveTab('cohorts')}
+                      onDrilldownSql={(drillSql, title) => void handleCohortDrilldown(drillSql, title)}
+                    />
+                  </Suspense>
                 </div>
               </div>
 
@@ -872,41 +898,66 @@ export function App() {
             </>
           )}
 
+          {activeTab === 'lineage' && (
+            <Suspense fallback={<LazyViewFallback label="Medallion Schema Lineage ERD" />}>
+              <SchemaLineageView
+                copy={copy}
+                locale={locale}
+                tables={tables}
+                baseTransactionRows={dataset.rowCount}
+                onQueryTableInNotebook={(tblName, starterSql) => {
+                  setActiveTab('workbench');
+                  void handleRunOnActiveCell(starterSql, 'manual', `Lineage: ${tblName}`);
+                }}
+              />
+            </Suspense>
+          )}
+
           {activeTab === 'ingest' && (
-            <DataIngestStudio
-              copy={copy}
-              locale={locale}
-              tables={tables}
-              isIngesting={isIngesting}
-              onUploadFile={handleUploadFile}
-              onLoadEnterpriseSample={handleLoadEnterpriseSample}
-              onQueryTableInNotebook={(tblName, starterSql) => {
-                setActiveTab('workbench');
-                void handleRunOnActiveCell(starterSql, 'manual', `Query: ${tblName}`);
-              }}
-            />
+            <Suspense fallback={<LazyViewFallback label="Data Ingest Studio" />}>
+              <DataIngestStudio
+                copy={copy}
+                locale={locale}
+                tables={tables}
+                isIngesting={isIngesting}
+                onUploadFile={handleUploadFile}
+                onLoadEnterpriseSample={handleLoadEnterpriseSample}
+                onQueryTableInNotebook={(tblName, starterSql) => {
+                  setActiveTab('workbench');
+                  void handleRunOnActiveCell(starterSql, 'manual', `Query: ${tblName}`);
+                }}
+              />
+            </Suspense>
           )}
 
           {activeTab === 'cohorts' && (
-            <CohortHeatmapPanel
-              copy={copy}
-              locale={locale}
-              sourceRows={saasCohortRows}
-              onDrilldownSql={(drillSql, title) => void handleCohortDrilldown(drillSql, title)}
-            />
+            <Suspense fallback={<LazyViewFallback label="Cohort Retention Studio" />}>
+              <CohortHeatmapPanel
+                copy={copy}
+                locale={locale}
+                sourceRows={saasCohortRows}
+                onDrilldownSql={(drillSql, title) => void handleCohortDrilldown(drillSql, title)}
+              />
+            </Suspense>
           )}
 
           {activeTab === 'multiplayer' && (
-            <CrdtMultiplayerLab
-              copy={copy}
-              onExecutePeerSql={(peerSql) => {
-                setActiveTab('workbench');
-                void handleRunOnActiveCell(peerSql, 'peer', 'CRDT Peer Converged SQL');
-              }}
-            />
+            <Suspense fallback={<LazyViewFallback label="CRDT Multiplayer Lab" />}>
+              <CrdtMultiplayerLab
+                copy={copy}
+                onExecutePeerSql={(peerSql) => {
+                  setActiveTab('workbench');
+                  void handleRunOnActiveCell(peerSql, 'peer', 'CRDT Peer Converged SQL');
+                }}
+              />
+            </Suspense>
           )}
 
-          {activeTab === 'architecture' && <ArchitectureInspector />}
+          {activeTab === 'architecture' && (
+            <Suspense fallback={<LazyViewFallback label="Architecture Inspector" />}>
+              <ArchitectureInspector />
+            </Suspense>
+          )}
         </main>
       </div>
 
@@ -922,12 +973,16 @@ export function App() {
         onOpenEnterpriseLicense={() => setLicenseOpen(true)}
       />
 
-      <EnterpriseLicenseModal
-        open={licenseOpen}
-        onClose={() => setLicenseOpen(false)}
-        copy={copy}
-        locale={locale}
-      />
+      {licenseOpen && (
+        <Suspense fallback={null}>
+          <EnterpriseLicenseModal
+            open={licenseOpen}
+            onClose={() => setLicenseOpen(false)}
+            copy={copy}
+            locale={locale}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

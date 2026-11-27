@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { Suspense, lazy, useState } from 'react';
 import {
   AlertTriangle,
   BarChart3,
@@ -32,9 +32,25 @@ import type {
   QueryHistorySource,
 } from '../types/lakehouse';
 import { AutoChartPanel } from './AutoChartPanel';
-import { PivotMatrixPanel } from './PivotMatrixPanel';
-import { QueryPlanPanel } from './QueryPlanPanel';
 import { VirtualResultsTable } from './VirtualResultsTable';
+
+const PivotMatrixPanel = lazy(() =>
+  import('./PivotMatrixPanel').then((m) => ({ default: m.PivotMatrixPanel })),
+);
+const QueryPlanPanel = lazy(() =>
+  import('./QueryPlanPanel').then((m) => ({ default: m.QueryPlanPanel })),
+);
+
+const LazyCellPanelFallback: React.FC<{ label: string; heightClass?: string }> = ({
+  label,
+  heightClass = 'h-[214px]',
+}) => (
+  <div
+    className={`${heightClass} flex items-center justify-center bg-[var(--bg-inset)] font-mono-tech text-[10.5px] text-[var(--text-muted)]`}
+  >
+    Loading {label}...
+  </div>
+);
 
 interface SqlNotebookPanelProps {
   copy: CopyDict;
@@ -518,19 +534,31 @@ export const SqlNotebookPanel: React.FC<SqlNotebookPanelProps> = ({
                   )}
                   {cell.viewMode === 'chart' && <AutoChartPanel result={cell.result} />}
                   {cell.viewMode === 'pivot' && (
-                    <PivotMatrixPanel
-                      copy={copy}
-                      result={cell.result}
-                      initialConfig={cell.pivotConfig}
-                      onConfigChange={(cfg) => onUpdateCellPivot(cell.id, cfg)}
-                      heightClass="h-[214px]"
-                    />
+                    <Suspense
+                      fallback={
+                        <LazyCellPanelFallback label="Pivot Matrix" heightClass="h-[214px]" />
+                      }
+                    >
+                      <PivotMatrixPanel
+                        copy={copy}
+                        result={cell.result}
+                        initialConfig={cell.pivotConfig}
+                        onConfigChange={(cfg) => onUpdateCellPivot(cell.id, cfg)}
+                        heightClass="h-[214px]"
+                      />
+                    </Suspense>
                   )}
                   {cell.viewMode === 'plan' && (
-                    <QueryPlanPanel
-                      result={cell.result}
-                      rawExplainText={cell.rawExplainText}
-                    />
+                    <Suspense
+                      fallback={
+                        <LazyCellPanelFallback label="EXPLAIN Query Plan" heightClass="h-[228px]" />
+                      }
+                    >
+                      <QueryPlanPanel
+                        result={cell.result}
+                        rawExplainText={cell.rawExplainText}
+                      />
+                    </Suspense>
                   )}
                 </>
               )}

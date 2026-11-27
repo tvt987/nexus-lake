@@ -280,6 +280,28 @@ export function buildQueryPlanAnalysis(
 
   const arrowStats = computeArrowBufferBreakdown(scannedRows);
 
+  const upperSql = result.sql.toUpperCase();
+  const hasPartitionKey =
+    /\bWHERE\b/.test(upperSql) &&
+    /\b(REGION|TS|CATEGORY|CITY|SIGNUP_COHORT|SEGMENT|CARRIER)\b/.test(upperSql);
+  const hasWhere = /\bWHERE\b/.test(upperSql);
+  const partitionPruningRatio = hasPartitionKey
+    ? 0.72
+    : hasWhere
+      ? 0.34
+      : /\bLIMIT\b/.test(upperSql) && !/\bGROUP\s+BY\b/.test(upperSql)
+        ? 0.52
+        : 0.0;
+  const estimatedScanRows = Math.max(
+    returnedRows,
+    Math.round(scannedRows * (1 - partitionPruningRatio)),
+  );
+  const memoryFootprintMb = Number(
+    Math.max(0.18, (arrowStats.totalBytes * (1 - partitionPruningRatio * 0.55)) / (1024 * 1024)).toFixed(
+      2,
+    ),
+  );
+
   return {
     stages,
     rawExplainText: synthesizedExplain,
@@ -290,6 +312,9 @@ export function buildQueryPlanAnalysis(
     returnedRows,
     arrowTotalBytes: arrowStats.totalBytes,
     arrowBuffers: arrowStats.buffers,
+    estimatedScanRows,
+    partitionPruningRatio,
+    memoryFootprintMb,
   };
 }
 

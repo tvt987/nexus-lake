@@ -26,15 +26,15 @@ interface EnterpriseLicenseModalProps {
 
 const DELIVERABLES = {
   en: [
-    'Complete NEXUS LAKE v3.0 TypeScript + DuckDB-WASM + WebGPU Source Ownership',
-    'Production MCP Lakehouse Server (stdio + Streamable HTTP) with AST SQL Guardrail',
-    'Custom Parquet / S3 / PostgreSQL / SQL Server CDC Connector Setup & VPC Hardening',
+    'Complete NEXUS LAKE v4.0 Full-Stack (Python 3.12 FastAPI + DuckDB-WASM + WebGPU) Source Ownership',
+    'Production MCP Lakehouse Server (stdio + Streamable HTTP) + Dual-Layer Read-Only SQL Guardrail',
+    'Custom Parquet / S3 / PostgreSQL / SQL Server CDC Connector Setup & Docker VPC Hardening',
     '90-Day Direct Solution Architect SLA Support (Truong Van Tinh · TVT Studio)',
   ],
   vi: [
-    'Bàn giao trọn bộ mã nguồn NEXUS LAKE v3.0 TypeScript + DuckDB-WASM + WebGPU',
-    'MCP Lakehouse Server chuẩn doanh nghiệp (stdio + Streamable HTTP) kèm tường lửa SQL AST',
-    'Tích hợp kết nối Parquet / S3 / PostgreSQL / SQL Server CDC & triển khai VPC bảo mật',
+    'Bàn giao trọn bộ mã nguồn NEXUS LAKE v4.0 Full-Stack (Python 3.12 FastAPI + DuckDB-WASM + WebGPU)',
+    'MCP Lakehouse Server chuẩn doanh nghiệp (stdio + Streamable HTTP) kèm tường lửa SQL AST 2 lớp',
+    'Tích hợp kết nối Parquet / S3 / PostgreSQL / SQL Server CDC & triển khai Docker VPC bảo mật',
     '90 ngày đồng hành SLA trực tiếp cùng Solution Architect (Trương Văn Tình · TVT Studio)',
   ],
 };

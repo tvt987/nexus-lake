@@ -2,7 +2,13 @@ export type ThemeMode = 'dark' | 'light';
 export type Locale = 'en' | 'vi';
 export type EngineBackend = 'DUCKDB-WASM' | 'FALLBACK-OLAP';
 export type RendererBackend = 'WEBGPU WGSL' | 'WEBGL2 FALLBACK' | 'CANVAS2D FALLBACK';
-export type WorkspaceTab = 'workbench' | 'ingest' | 'cohorts' | 'multiplayer' | 'architecture';
+export type WorkspaceTab =
+  | 'workbench'
+  | 'lineage'
+  | 'ingest'
+  | 'cohorts'
+  | 'multiplayer'
+  | 'architecture';
 
 export type RegionCode = 'APAC-VN' | 'APAC-SG' | 'NA-WEST' | 'NA-EAST' | 'EU-CENTRAL';
 
@@ -292,6 +298,9 @@ export interface QueryPlanAnalysis {
   returnedRows: number;
   arrowTotalBytes: number;
   arrowBuffers: ArrowColumnBufferStat[];
+  estimatedScanRows: number;
+  partitionPruningRatio: number;
+  memoryFootprintMb: number;
 }
 
 export type QueryHistorySource =
@@ -438,4 +447,124 @@ export interface NlSqlTranslation {
   explanationEn: string;
   explanationVi: string;
   matchedTokens: string[];
+}
+
+// v4.0 Medallion Data Lineage, Schema ERD & Query Cost Inspector Types
+export type MedallionLayer = 'bronze' | 'silver' | 'gold';
+export type LineageNodeKind = 'stream' | 'table' | 'materialized_view';
+export type LineageRefreshState = 'fresh' | 'stale' | 'refreshed';
+export type LineageQualityGrade = 'A' | 'B' | 'C';
+
+export interface LineageColumnSchema {
+  name: string;
+  type: string;
+  isPk?: boolean;
+  isFk?: boolean;
+  fkTarget?: string;
+  nullRatePct: number;
+}
+
+export interface LineageTableNode {
+  id: string;
+  name: string;
+  layer: MedallionLayer;
+  kind: LineageNodeKind;
+  description: string;
+  rowCount: number;
+  sizeMb: number;
+  nullRatePct: number;
+  qualityGrade: LineageQualityGrade;
+  freshnessSec: number;
+  partitionKey: string;
+  partitionCount: number;
+  refreshState: LineageRefreshState;
+  lastRefreshedAt: string;
+  sourceTableRef: string;
+  sampleSql: string;
+  columns: LineageColumnSchema[];
+  // Deterministic SVG ERD Canvas coordinates
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface LineageEdge {
+  id: string;
+  source: string;
+  target: string;
+  transformLabel: string;
+  joinKey: string;
+  edgeType: 'cdc' | 'transform' | 'materialize';
+  estimatedRowFlow: number;
+}
+
+export interface MedallionLineageGraph {
+  nodes: LineageTableNode[];
+  edges: LineageEdge[];
+  svgWidth: number;
+  svgHeight: number;
+  summary: {
+    totalTables: number;
+    bronzeCount: number;
+    silverCount: number;
+    goldCount: number;
+    totalRows: number;
+    totalSizeMb: number;
+    avgNullRatePct: number;
+    staleCount: number;
+  };
+}
+
+export interface LineageTopologicalValidation {
+  acyclic: boolean;
+  topologicalOrder: string[];
+  cycleNodes: string[];
+}
+
+export interface LineageDependencyHighlight {
+  selectedId: string | null;
+  upstreamNodeIds: string[];
+  downstreamNodeIds: string[];
+  upstreamEdgeIds: string[];
+  downstreamEdgeIds: string[];
+  impactedNodeCount: number;
+}
+
+export interface QueryPlanCostEstimate {
+  targetTableId: string;
+  targetLayer: MedallionLayer;
+  totalTableRows: number;
+  estimatedScanRows: number;
+  prunedRows: number;
+  partitionPruningRatio: number; // 0..0.95
+  memoryFootprintMb: number;
+  estimatedLatencyMs: number;
+  costTier: 'LOW' | 'MODERATE' | 'HEAVY';
+  usedPredicatePushdown: boolean;
+  usedPartitionFilter: boolean;
+  recommendations: string[];
+}
+
+export interface IncrementalRefreshStep {
+  nodeId: string;
+  tableName: string;
+  layer: MedallionLayer;
+  deltaRows: number;
+  scannedRows: number;
+  partitionPruningRatio: number;
+  memoryMb: number;
+  durationMs: number;
+  status: 'COMPLETED';
+}
+
+export interface IncrementalRefreshResult {
+  graph: MedallionLineageGraph;
+  steps: IncrementalRefreshStep[];
+  totalDeltaRows: number;
+  totalScannedRows: number;
+  avgPartitionPruningRatio: number;
+  peakMemoryMb: number;
+  totalDurationMs: number;
+  refreshedAt: string;
 }

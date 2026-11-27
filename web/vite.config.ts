@@ -48,11 +48,37 @@ export default defineConfig({
     chunkSizeWarningLimit: 1800,
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'lucide-react'],
-          crdt: ['yjs'],
-          table: ['@tanstack/react-table', '@tanstack/react-virtual'],
-          arrow: ['apache-arrow'],
+        manualChunks(id) {
+          const normalized = id.replace(/\\/g, '/');
+          if (
+            normalized.includes('node_modules/react/') ||
+            normalized.includes('node_modules/react-dom/') ||
+            normalized.includes('node_modules/scheduler/')
+          ) {
+            return 'react';
+          }
+          if (normalized.includes('node_modules/@duckdb/duckdb-wasm')) {
+            return 'duckdb';
+          }
+          if (normalized.includes('node_modules/apache-arrow')) {
+            return 'arrow';
+          }
+          if (normalized.includes('node_modules/@tanstack/')) {
+            return 'table';
+          }
+          if (normalized.includes('node_modules/yjs') || normalized.includes('node_modules/lib0')) {
+            return 'crdt';
+          }
+          if (normalized.includes('node_modules/lucide-react')) {
+            return 'icons';
+          }
+          if (
+            normalized.includes('/src/engine/') ||
+            normalized.includes('/src/engines/')
+          ) {
+            return 'engines';
+          }
+          return undefined;
         },
       },
     },

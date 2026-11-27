@@ -1,0 +1,460 @@
+openapi: 3.1.0
+info:
+  title: Nexus Lake v4.0 Analytical Lakehouse API
+  version: 4.0.0
+  description: >
+    Read-only guarded SQLite Medallion Lakehouse execution engine, Bronze/Silver/Gold
+    Data Lineage DAG catalog, Materialized View refresh orchestrator, and statistical
+    CSV ingestion profiler.
+  contact:
+    name: Truong Van Tinh (TVT Studio)
+    email: tinhkun102@gmail.com
+    url: https://github.com/tvt987/nexus-lake
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+servers:
+  - url: http://127.0.0.1:8000
+    description: Local FastAPI Uvicorn Server
+  - url: http://localhost:8080
+    description: Docker Compose Nginx Reverse Proxy
+tags:
+  - name: System
+    description: Runtime health and engine readiness probes
+  - name: Catalog
+    description: Medallion Bronze/Silver/Gold DAG topology and materialized view refresh
+  - name: SQL Engine
+    description: Dual-layer guarded read-only SELECT/WITH SQL execution with EXPLAIN QUERY PLAN
+  - name: Ingestion
+    description: CSV schema type inference, null-rate telemetry, and anomaly profiling
+
+paths:
+  /health:
+    get:
+      tags: [System]
+      summary: Service health and warehouse readiness
+      operationId: getHealth
+      responses:
+        '200':
+          description: Analytical backend is healthy and Medallion tables are seeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/v1/catalog/lineage:
+    get:
+      tags: [Catalog]
+      summary: Retrieve Bronze/Silver/Gold Medallion Lineage DAG and schema metadata
+      operationId: getCatalogLineage
+      responses:
+        '200':
+          description: Live introspected Medallion table catalog, edges, and Kahn topological ordering
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LineageCatalogResponse'
+
+  /api/v1/catalog/refresh:
+    post:
+      tags: [Catalog]
+      summary: Atomically rebuild Silver and Gold materialized marts from Bronze tables
+      operationId: refreshCatalogMarts
+      responses:
+        '200':
+          description: Materialized marts rebuilt cleanly
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogRefreshResponse'
+
+  /api/v1/sql/execute:
+    post:
+      tags: [SQL Engine]
+      summary: Execute a read-only SELECT/WITH SQL query with EXPLAIN QUERY PLAN
+      operationId: executeReadonlySql
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SqlExecuteRequest'
+      responses:
+        '200':
+          description: Query executed cleanly within read-only sandbox and row cap
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SqlExecuteResponse'
+        '400':
+          description: Invalid SQL syntax, empty query, or unknown relation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Blocked by dual-layer SQL guardrail (DDL/DML/PRAGMA/ATTACH/stacked statements)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request payload failed Pydantic validation
+
+  /api/v1/ingest/profile-csv:
+    post:
+      tags: [Ingestion]
+      summary: Profile CSV payload for inferred column types, statistics, and quality anomalies
+      operationId: profileCsvIngestion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CsvProfileRequest'
+      responses:
+        '200':
+          description: Schema profile and anomaly report computed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CsvProfileResponse'
+        '400':
+          description: Empty or header-only CSV payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request payload failed Pydantic validation
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status, service, version, engine, tables_loaded, uptime_ms]
+      properties:
+        status:
+          type: string
+          example: ok
+        service:
+          type: string
+          example: nexus-lake-api
+        version:
+          type: string
+          example: 4.0.0
+        engine:
+          type: string
+          example: sqlite3-readonly-lakehouse
+        tables_loaded:
+          type: integer
+          example: 6
+        uptime_ms:
+          type: number
+          example: 14.28
+
+    LineageColumnModel:
+      type: object
+      required: [name, type, is_pk, null_rate_pct]
+      properties:
+        name:
+          type: string
+          example: tx_id
+        type:
+          type: string
+          example: TEXT
+        is_pk:
+          type: boolean
+          example: true
+        null_rate_pct:
+          type: number
+          example: 0.0
+
+    LineageTableModel:
+      type: object
+      required:
+        - id
+        - name
+        - layer
+        - kind
+        - description
+        - row_count
+        - null_rate_pct
+        - quality_grade
+        - partition_key
+        - refresh_sla_sec
+        - columns
+      properties:
+        id:
+          type: string
+          example: bronze_pos_events
+        name:
+          type: string
+          example: bronze_pos_events
+        layer:
+          type: string
+          enum: [bronze, silver, gold]
+        kind:
+          type: string
+          enum: [stream, table, materialized_view]
+        description:
+          type: string
+        row_count:
+          type: integer
+          example: 600
+        null_rate_pct:
+          type: number
+          example: 4.09
+        quality_grade:
+          type: string
+          enum: [A, B, C]
+        partition_key:
+          type: string
+          example: region, tx_date
+        refresh_sla_sec:
+          type: integer
+          example: 15
+        columns:
+          type: array
+          items:
+            $ref: '#/components/schemas/LineageColumnModel'
+
+    LineageEdgeModel:
+      type: object
+      required: [id, source, target, transform, edge_type]
+      properties:
+        id:
+          type: string
+          example: e-bronze-pos-silver-tx
+        source:
+          type: string
+          example: bronze_pos_events
+        target:
+          type: string
+          example: silver_transactions_clean
+        transform:
+          type: string
+          example: CDC Dedupe + Risk Banding
+        edge_type:
+          type: string
+          enum: [cdc, transform, materialize]
+
+    LineageCatalogResponse:
+      type: object
+      required: [layers, tables, edges, topological_order, is_acyclic]
+      properties:
+        layers:
+          type: array
+          items:
+            type: string
+          example: [bronze, silver, gold]
+        tables:
+          type: array
+          items:
+            $ref: '#/components/schemas/LineageTableModel'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/LineageEdgeModel'
+        topological_order:
+          type: array
+          items:
+            type: string
+        is_acyclic:
+          type: boolean
+          example: true
+
+    CatalogRefreshResponse:
+      type: object
+      required: [status, refreshed_tables, duration_ms, refreshed_at]
+      properties:
+        status:
+          type: string
+          example: COMPLETED
+        refreshed_tables:
+          type: object
+          additionalProperties:
+            type: integer
+        duration_ms:
+          type: number
+          example: 2.41
+        refreshed_at:
+          type: string
+          format: date-time
+
+    SqlExecuteRequest:
+      type: object
+      required: [sql]
+      properties:
+        sql:
+          type: string
+          minLength: 1
+          maxLength: 16000
+          example: SELECT region, COUNT(*) AS tx_count, ROUND(SUM(amount_usd), 2) AS gmv_usd FROM bronze_pos_events GROUP BY region ORDER BY gmv_usd DESC
+        max_rows:
+          type: integer
+          minimum: 1
+          maximum: 1000
+          default: 500
+
+    QueryPlanStepModel:
+      type: object
+      required: [id, parent, detail]
+      properties:
+        id:
+          type: integer
+          example: 4
+        parent:
+          type: integer
+          example: 0
+        detail:
+          type: string
+          example: SCAN bronze_pos_events USING INDEX idx_bronze_pos_region
+
+    QueryCostEstimateModel:
+      type: object
+      required: [estimated_scan_rows, partition_pruning_ratio, memory_footprint_mb]
+      properties:
+        estimated_scan_rows:
+          type: integer
+          example: 168
+        partition_pruning_ratio:
+          type: number
+          example: 0.72
+        memory_footprint_mb:
+          type: number
+          example: 0.08
+
+    SqlExecuteResponse:
+      type: object
+      required:
+        - columns
+        - rows
+        - row_count
+        - truncated
+        - limit_applied
+        - execution_ms
+        - query_plan
+        - cost_estimate
+      properties:
+        columns:
+          type: array
+          items:
+            type: string
+        rows:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        row_count:
+          type: integer
+        truncated:
+          type: boolean
+        limit_applied:
+          type: integer
+        execution_ms:
+          type: number
+        query_plan:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueryPlanStepModel'
+        cost_estimate:
+          $ref: '#/components/schemas/QueryCostEstimateModel'
+
+    CsvProfileRequest:
+      type: object
+      required: [csv_content]
+      properties:
+        table_name:
+          type: string
+          default: uploaded_dataset
+          minLength: 1
+          maxLength: 120
+        csv_content:
+          type: string
+          minLength: 1
+          maxLength: 5000000
+
+    ColumnProfileModel:
+      type: object
+      required: [name, inferred_type, null_count, null_rate_pct, distinct_count, sample_values]
+      properties:
+        name:
+          type: string
+        inferred_type:
+          type: string
+          enum: [integer, float, boolean, date, string]
+        null_count:
+          type: integer
+        null_rate_pct:
+          type: number
+        distinct_count:
+          type: integer
+        min:
+          oneOf:
+            - type: number
+            - type: string
+            - type: 'null'
+        max:
+          oneOf:
+            - type: number
+            - type: string
+            - type: 'null'
+        mean:
+          type: [number, 'null']
+        sample_values:
+          type: array
+          items:
+            type: string
+
+    ProfileAnomalyModel:
+      type: object
+      required: [column, code, severity, message]
+      properties:
+        column:
+          type: string
+        code:
+          type: string
+          enum:
+            - HIGH_NULL_RATE
+            - CONSTANT_COLUMN
+            - NUMERIC_OUTLIERS
+            - MIXED_TYPE_VALUES
+            - DUPLICATE_ROWS
+        severity:
+          type: string
+          enum: [info, warning, critical]
+        message:
+          type: string
+
+    CsvProfileResponse:
+      type: object
+      required: [table_name, row_count, column_count, delimiter, quality_score, parse_ms, columns, anomalies]
+      properties:
+        table_name:
+          type: string
+        row_count:
+          type: integer
+        column_count:
+          type: integer
+        delimiter:
+          type: string
+        quality_score:
+          type: number
+        parse_ms:
+          type: number
+        columns:
+          type: array
+          items:
+            $ref: '#/components/schemas/ColumnProfileModel'
+        anomalies:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfileAnomalyModel'
+
+    ErrorResponse:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string

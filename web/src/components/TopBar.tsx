@@ -6,6 +6,7 @@ import {
   FileUp,
   Flame,
   GitBranch,
+  GitFork,
   Globe,
   Layers,
   Moon,
@@ -66,6 +67,7 @@ export const TopBar: React.FC<TopBarProps> = ({
     Icon: React.ComponentType<{ className?: string }>;
   }[] = [
     { id: 'workbench', label: copy.tabWorkbench, shortLabel: 'SQL', Icon: Database },
+    { id: 'lineage', label: copy.tabLineage, shortLabel: 'Lineage', Icon: GitFork },
     { id: 'ingest', label: copy.tabIngest, shortLabel: 'Ingest', Icon: FileUp },
     { id: 'cohorts', label: copy.tabCohorts, shortLabel: 'Cohort', Icon: Flame },
     { id: 'multiplayer', label: copy.tabMultiplayer, shortLabel: 'CRDT', Icon: GitBranch },
@@ -126,7 +128,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 data-testid="version-badge"
                 className="hidden xl:inline-block font-mono-tech text-[9.5px] px-1.5 py-0.5 rounded bg-[var(--accent-signal-soft)] text-[var(--accent-signal)] border border-[var(--accent-signal)]/35 whitespace-nowrap font-semibold"
               >
-                v3.0 · ENTERPRISE
+                v4.0 · FULL-STACK
               </span>
             </div>
             <p className="hidden 2xl:block text-[9px] font-mono-tech tracking-wider text-[var(--text-muted)] mt-0.5 m-0">
@@ -146,7 +148,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 aria-label={label}
                 title={label}
                 onClick={() => onTabChange(id)}
-                className={`px-1.5 sm:px-2 py-1.5 rounded text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer shrink-0 ${
+                className={`p-1 sm:px-2 sm:py-1.5 rounded text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer shrink-0 ${
                   active
                     ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)] border border-[var(--border-strong)]'
                     : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-transparent'
@@ -157,8 +159,8 @@ export const TopBar: React.FC<TopBarProps> = ({
                     active ? 'text-[var(--accent-cyan)]' : ''
                   }`}
                 />
-                <span className="hidden lg:inline whitespace-nowrap">{label}</span>
-                <span className="hidden sm:inline lg:hidden whitespace-nowrap">{shortLabel}</span>
+                <span className="hidden xl:inline whitespace-nowrap">{label}</span>
+                <span className="hidden sm:inline xl:hidden whitespace-nowrap">{shortLabel}</span>
               </button>
             );
           })}

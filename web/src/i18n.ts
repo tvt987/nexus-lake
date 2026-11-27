@@ -75,12 +75,18 @@ export interface CopyDict {
   cohortRetentionMode: string;
   cohortNrrMode: string;
   cohortExpansionMode: string;
+  // v4.0 FULL-STACK MEDALLION LINEAGE & COST INSPECTOR
+  tabLineage: string;
+  lineageTitle: string;
+  lineageRefreshAll: string;
+  costInspectorTitle: string;
 }
 
 export const COPY: Record<Locale, CopyDict> = {
   en: {
-    subtitle: 'ENTERPRISE DUCKDB-WASM LAKEHOUSE & AI SQL NOTEBOOK',
+    subtitle: 'FULL-STACK FASTAPI + DUCKDB-WASM LAKEHOUSE & LINEAGE ERD',
     tabWorkbench: 'SQL Notebook + GPU',
+    tabLineage: 'Schema Lineage',
     tabIngest: 'Ingest & Profiler',
     tabCohorts: 'Cohort Heatmap',
     tabMultiplayer: 'CRDT Lab',
@@ -128,7 +134,7 @@ export const COPY: Record<Locale, CopyDict> = {
     enterpriseLicenseBtn: 'Enterprise · 14.9M',
     enterpriseModalTitle: 'ENTERPRISE LAKEHOUSE COMMISSIONING',
     enterpriseModalSubtitle:
-      'Deploy NEXUS LAKE v3.0 inside your VPC with full TypeScript/DuckDB-WASM source ownership, MCP Server & Principal Architect support.',
+      'Deploy NEXUS LAKE v4.0 Full-Stack (Python FastAPI + DuckDB-WASM) inside your VPC with full source ownership, MCP Server & Principal Architect support.',
     nl2sqlTitle: 'NL-TO-SQL COPILOT (OFFLINE VI/EN)',
     nl2sqlPlaceholder:
       'Ask in English or Vietnamese: e.g. "Top 10 products by gross margin" or "Churned enterprise accounts > 50M VND"...',
@@ -156,10 +162,14 @@ export const COPY: Record<Locale, CopyDict> = {
     cohortRetentionMode: 'Logo Retention %',
     cohortNrrMode: 'Net Revenue Retention %',
     cohortExpansionMode: 'Expansion MRR (VND)',
+    lineageTitle: 'MEDALLION DATA LINEAGE & SCHEMA ERD',
+    lineageRefreshAll: 'Refresh All Layers',
+    costInspectorTitle: 'MATERIALIZED VIEW REFRESH & QUERY PLAN COST',
   },
   vi: {
-    subtitle: 'KHO DỮ LIỆU DUCKDB-WASM DOANH NGHIỆP & SỔ TAY SQL AI',
+    subtitle: 'KHO DỮ LIỆU FULL-STACK FASTAPI + DUCKDB-WASM & ĐỒ THỊ LINEAGE',
     tabWorkbench: 'Sổ Tay SQL + GPU',
+    tabLineage: 'Lineage & ERD',
     tabIngest: 'Nạp Dữ Liệu & Hồ Sơ',
     tabCohorts: 'Bản Đồ Cohort',
     tabMultiplayer: 'Lab CRDT',
@@ -207,7 +217,7 @@ export const COPY: Record<Locale, CopyDict> = {
     enterpriseLicenseBtn: 'Bản Quyền · 14.9M',
     enterpriseModalTitle: 'TRIỂN KHAI BẢN QUYỀN DOANH NGHIỆP',
     enterpriseModalSubtitle:
-      'Sở hữu trọn bộ mã nguồn NEXUS LAKE v3.0 triển khai nội bộ VPC cùng MCP Lakehouse Server & hỗ trợ trực tiếp từ Solution Architect.',
+      'Sở hữu trọn bộ mã nguồn NEXUS LAKE v4.0 Full-Stack (Python FastAPI + DuckDB-WASM) triển khai nội bộ VPC cùng MCP Server & hỗ trợ Solution Architect.',
     nl2sqlTitle: 'TRỢ LÝ NL-TO-SQL OFFLINE (VI/EN)',
     nl2sqlPlaceholder:
       'Nhập câu hỏi Tiếng Việt/Anh: vd "Top 10 sản phẩm biên lợi nhuận cao nhất" hoặc "Tài khoản doanh nghiệp rời bỏ > 50 triệu VND"...',
@@ -235,5 +245,8 @@ export const COPY: Record<Locale, CopyDict> = {
     cohortRetentionMode: 'Giữ Chân Logo %',
     cohortNrrMode: 'Mở Rộng Doanh Thu NRR %',
     cohortExpansionMode: 'MRR Mở Rộng (VND)',
+    lineageTitle: 'ĐỒ THỊ LINEAGE MEDALLION & LƯỢC ĐỒ ERD',
+    lineageRefreshAll: 'Làm Mới Toàn Bộ Tầng',
+    costInspectorTitle: 'LÀM MỚI MATERIALIZED VIEW & CHI PHÍ TRUY VẤN',
   },
 };

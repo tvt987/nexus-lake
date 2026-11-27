@@ -4,6 +4,7 @@ import {
   FileUp,
   Flame,
   GitBranch,
+  GitFork,
   Layers,
   Search,
   ShieldCheck,
@@ -75,6 +76,17 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         icon: Database,
         run: () => {
           onSwitchTab('workbench');
+          onClose();
+        },
+      },
+      {
+        id: 'nav-lineage',
+        group: 'VIEW',
+        label: 'Open Medallion Schema Lineage ERD & Materialized View Cost Inspector',
+        hint: 'TAB 2',
+        icon: GitFork,
+        run: () => {
+          onSwitchTab('lineage');
           onClose();
         },
       },

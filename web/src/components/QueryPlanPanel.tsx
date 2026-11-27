@@ -96,7 +96,32 @@ export const QueryPlanPanel: React.FC<QueryPlanPanelProps> = ({ result, rawExpla
           {analysis.rawExplainText}
         </pre>
       ) : (
-        <div className="flex-1 min-h-0 overflow-y-auto p-2.5 space-y-2.5">
+        <div className="flex-1 min-h-0 overflow-y-auto p-2.5 space-y-2">
+          {/* v4.0 Query Plan Cost Inspector Telemetry Strip */}
+          <div
+            data-testid="query-cost-strip"
+            className="grid grid-cols-3 gap-2 font-mono-tech text-[9.5px]"
+          >
+            <div className="px-2 py-1 rounded border border-[var(--border-hairline)] bg-[var(--bg-surface)] flex items-center justify-between gap-1">
+              <span className="text-[var(--text-muted)]">EST. SCAN</span>
+              <span className="text-[var(--text-primary)] font-semibold tabular-nums">
+                {analysis.estimatedScanRows.toLocaleString()} rows
+              </span>
+            </div>
+            <div className="px-2 py-1 rounded border border-[var(--border-hairline)] bg-[var(--bg-surface)] flex items-center justify-between gap-1">
+              <span className="text-[var(--text-muted)]">PRUNING</span>
+              <span className="text-[var(--accent-emerald)] font-semibold tabular-nums">
+                {(analysis.partitionPruningRatio * 100).toFixed(0)}% pruned
+              </span>
+            </div>
+            <div className="px-2 py-1 rounded border border-[var(--border-hairline)] bg-[var(--bg-surface)] flex items-center justify-between gap-1">
+              <span className="text-[var(--text-muted)]">MEMORY</span>
+              <span className="text-[var(--accent-cyan)] font-semibold tabular-nums">
+                {analysis.memoryFootprintMb.toFixed(2)} MB
+              </span>
+            </div>
+          </div>
+
           {/* Physical Execution Pipeline DAG */}
           <div className="overflow-x-auto pb-1">
             <div className="flex items-stretch gap-1 min-w-max sm:min-w-0">
