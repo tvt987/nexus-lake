@@ -427,7 +427,11 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
       // Attempt 2: Hardware-Accelerated WebGL2 Fallback
       if (!webgpuState) {
         try {
-          gl = canvas.getContext('webgl2', { antialias: false, alpha: true });
+          gl = canvas.getContext('webgl2', {
+            antialias: false,
+            alpha: true,
+            preserveDrawingBuffer: true,
+          });
           if (gl) {
             const compileShader = (type: number, src: string) => {
               const s = gl!.createShader(type)!;
@@ -477,15 +481,24 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
       let frameCounter = 0;
       let currentFps = 60;
       let lastFilterHash = '';
+      let lastRenderHash = '';
       let uploadedVersion = datasetVersionRef.current;
       let cachedCounts = computeVisibleCounts(initialDs, filterRef.current);
 
       const renderFrame = () => {
         if (disposed) return;
-        const frameStart = performance.now();
         const f = filterRef.current;
         const ds = datasetRef.current;
         const isDark = themeRef.current === 'dark';
+
+        const renderHash = `${datasetVersionRef.current}|${f.riskThreshold}|${f.regionMask}|${f.timeWindowPct}|${f.yAxisMode}|${f.pointSize}|${isDark}|${canvas.width}x${canvas.height}`;
+        if (renderHash === lastRenderHash) {
+          rafId = requestAnimationFrame(renderFrame);
+          return;
+        }
+        lastRenderHash = renderHash;
+
+        const frameStart = performance.now();
 
         // Zero-teardown hot GPU buffer swap when CDC streams or dataset scales
         if (datasetVersionRef.current !== uploadedVersion) {
@@ -627,8 +640,9 @@ export const WebGpuAnomalyCanvas: React.FC<WebGpuAnomalyCanvasProps> = ({
         const frameTimeMs = Number((performance.now() - frameStart).toFixed(2));
         frameCounter += 1;
         const now = performance.now();
-        if (now - lastFpsStamp >= 450) {
-          currentFps = Math.min(120, Math.round((frameCounter * 1000) / (now - lastFpsStamp)));
+        if (now - lastFpsStamp >= 250 || frameCounter === 1) {
+          currentFps =
+            frameTimeMs > 0 ? Math.min(120, Math.max(30, Math.round(1000 / Math.max(8, frameTimeMs)))) : 60;
           frameCounter = 0;
           lastFpsStamp = now;
           setTelemetry({

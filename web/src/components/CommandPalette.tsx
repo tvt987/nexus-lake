@@ -1,9 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Database,
+  FileUp,
+  Flame,
   GitBranch,
   Layers,
   Search,
+  ShieldCheck,
   Sparkles,
   Terminal,
   X,
@@ -19,6 +22,7 @@ interface CommandPaletteProps {
   onRunPresetSql: (sql: string) => void;
   onSwitchTab: (tab: WorkspaceTab) => void;
   onSwitchRowScale: (rows: number) => void;
+  onOpenEnterpriseLicense: () => void;
 }
 
 interface PaletteAction {
@@ -37,6 +41,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onRunPresetSql,
   onSwitchTab,
   onSwitchRowScale,
+  onOpenEnterpriseLicense,
 }) => {
   const [query, setQuery] = useState('');
   const [selectedIdx, setSelectedIdx] = useState(0);
@@ -65,7 +70,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       {
         id: 'nav-workbench',
         group: 'VIEW',
-        label: 'Open SQL + WebGPU Workbench',
+        label: 'Open Multi-Cell SQL Notebook & WebGPU Workbench',
         hint: 'TAB 1',
         icon: Database,
         run: () => {
@@ -74,10 +79,32 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         },
       },
       {
+        id: 'nav-ingest',
+        group: 'VIEW',
+        label: 'Open Local CSV/JSON Ingest & Column Profiler Studio',
+        hint: 'TAB 2',
+        icon: FileUp,
+        run: () => {
+          onSwitchTab('ingest');
+          onClose();
+        },
+      },
+      {
+        id: 'nav-cohorts',
+        group: 'VIEW',
+        label: 'Open Live Cohort Retention & NRR Heatmap',
+        hint: 'TAB 3',
+        icon: Flame,
+        run: () => {
+          onSwitchTab('cohorts');
+          onClose();
+        },
+      },
+      {
         id: 'nav-multiplayer',
         group: 'VIEW',
         label: 'Open Split CRDT Multiplayer Lab',
-        hint: 'TAB 2',
+        hint: 'TAB 4',
         icon: GitBranch,
         run: () => {
           onSwitchTab('multiplayer');
@@ -88,11 +115,22 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         id: 'nav-arch',
         group: 'VIEW',
         label: 'Open MCP Server & Architecture Inspector',
-        hint: 'TAB 3',
+        hint: 'TAB 5',
         icon: Layers,
         run: () => {
           onSwitchTab('architecture');
           onClose();
+        },
+      },
+      {
+        id: 'open-enterprise-license',
+        group: 'LICENSE',
+        label: 'Enterprise Lakehouse Commissioning (MBBank VietQR · 14.9M VND)',
+        hint: 'PRO',
+        icon: ShieldCheck,
+        run: () => {
+          onClose();
+          onOpenEnterpriseLicense();
         },
       },
       ...[100_000, 250_000, 500_000].map((rows) => ({
@@ -132,7 +170,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     }));
 
     return [...semantic, ...filtered];
-  }, [query, vectorIndex, onClose, onRunPresetSql, onSwitchRowScale, onSwitchTab]);
+  }, [query, vectorIndex, onClose, onOpenEnterpriseLicense, onRunPresetSql, onSwitchRowScale, onSwitchTab]);
 
   if (!open) return null;
 

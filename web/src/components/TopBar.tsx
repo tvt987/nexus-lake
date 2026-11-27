@@ -3,11 +3,14 @@ import {
   Command,
   Cpu,
   Database,
+  FileUp,
+  Flame,
   GitBranch,
   Globe,
   Layers,
   Moon,
   Radio,
+  ShieldCheck,
   Sun,
 } from 'lucide-react';
 import type { CopyDict } from '../i18n';
@@ -34,6 +37,7 @@ interface TopBarProps {
   locale: Locale;
   onToggleLocale: () => void;
   onOpenCommandPalette: () => void;
+  onOpenEnterpriseLicense: () => void;
 }
 
 const SCALES = [100_000, 250_000, 500_000];
@@ -53,15 +57,29 @@ export const TopBar: React.FC<TopBarProps> = ({
   locale,
   onToggleLocale,
   onOpenCommandPalette,
+  onOpenEnterpriseLicense,
 }) => {
+  const navItems: {
+    id: WorkspaceTab;
+    label: string;
+    shortLabel: string;
+    Icon: React.ComponentType<{ className?: string }>;
+  }[] = [
+    { id: 'workbench', label: copy.tabWorkbench, shortLabel: 'SQL', Icon: Database },
+    { id: 'ingest', label: copy.tabIngest, shortLabel: 'Ingest', Icon: FileUp },
+    { id: 'cohorts', label: copy.tabCohorts, shortLabel: 'Cohort', Icon: Flame },
+    { id: 'multiplayer', label: copy.tabMultiplayer, shortLabel: 'CRDT', Icon: GitBranch },
+    { id: 'architecture', label: copy.tabArchitecture, shortLabel: 'Arch', Icon: Layers },
+  ];
+
   return (
-    <header className="h-12 shrink-0 px-2.5 sm:px-4 flex items-center justify-between gap-2 nexus-hairline-b bg-[var(--bg-surface)] select-none">
+    <header className="h-12 shrink-0 px-2 sm:px-3.5 flex items-center justify-between gap-1.5 sm:gap-2 nexus-hairline-b bg-[var(--bg-surface)] select-none overflow-hidden">
       {/* Brand + Tabs */}
-      <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-        <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <svg
-            width="24"
-            height="24"
+            width="22"
+            height="22"
             viewBox="0 0 64 64"
             fill="none"
             aria-hidden="true"
@@ -100,77 +118,62 @@ export const TopBar: React.FC<TopBarProps> = ({
             <circle cx="32" cy="21.5" r="3.5" fill="var(--accent-signal)" />
           </svg>
           <div className="leading-none">
-            <div className="flex items-center gap-2">
-              <span className="font-display font-bold text-xs sm:text-sm tracking-tight text-[var(--text-primary)] whitespace-nowrap">
+            <div className="flex items-center gap-1.5">
+              <span className="font-display font-bold text-[11px] sm:text-sm tracking-tight text-[var(--text-primary)] whitespace-nowrap">
                 NEXUS LAKE
               </span>
               <span
                 data-testid="version-badge"
-                className="hidden lg:inline-block font-mono-tech text-[9.5px] px-1.5 py-0.5 rounded bg-[var(--accent-cyan-soft)] text-[var(--accent-cyan)] border border-[var(--accent-cyan)]/35 whitespace-nowrap font-semibold"
+                className="hidden xl:inline-block font-mono-tech text-[9.5px] px-1.5 py-0.5 rounded bg-[var(--accent-signal-soft)] text-[var(--accent-signal)] border border-[var(--accent-signal)]/35 whitespace-nowrap font-semibold"
               >
-                v2.0 · LAKEHOUSE
+                v3.0 · ENTERPRISE
               </span>
             </div>
-            <p className="hidden 2xl:block text-[9px] font-mono-tech tracking-wider text-[var(--text-muted)] mt-0.5">
+            <p className="hidden 2xl:block text-[9px] font-mono-tech tracking-wider text-[var(--text-muted)] mt-0.5 m-0">
               {copy.subtitle}
             </p>
           </div>
         </div>
 
-        <nav className="flex items-center gap-1" aria-label="Workspace views">
-          <button
-            type="button"
-            data-testid="tab-workbench"
-            onClick={() => onTabChange('workbench')}
-            className={`px-2.5 py-1.5 rounded text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
-              activeTab === 'workbench'
-                ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)] border border-[var(--border-strong)]'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-transparent'
-            }`}
-          >
-            <Database className="w-3.5 h-3.5 stroke-[1.6]" />
-            <span className="hidden sm:inline">{copy.tabWorkbench}</span>
-          </button>
-
-          <button
-            type="button"
-            data-testid="tab-multiplayer"
-            onClick={() => onTabChange('multiplayer')}
-            className={`px-2.5 py-1.5 rounded text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
-              activeTab === 'multiplayer'
-                ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)] border border-[var(--border-strong)]'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-transparent'
-            }`}
-          >
-            <GitBranch className="w-3.5 h-3.5 stroke-[1.6]" />
-            <span className="hidden sm:inline">{copy.tabMultiplayer}</span>
-          </button>
-
-          <button
-            type="button"
-            data-testid="tab-architecture"
-            onClick={() => onTabChange('architecture')}
-            className={`px-2.5 py-1.5 rounded text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
-              activeTab === 'architecture'
-                ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)] border border-[var(--border-strong)]'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-transparent'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5 stroke-[1.6]" />
-            <span className="hidden md:inline">{copy.tabArchitecture}</span>
-          </button>
+        <nav className="flex items-center gap-0.5 sm:gap-1 min-w-0" aria-label="Workspace views">
+          {navItems.map(({ id, label, shortLabel, Icon }) => {
+            const active = activeTab === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                data-testid={`tab-${id}`}
+                aria-label={label}
+                title={label}
+                onClick={() => onTabChange(id)}
+                className={`px-1.5 sm:px-2 py-1.5 rounded text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer shrink-0 ${
+                  active
+                    ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)] border border-[var(--border-strong)]'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-transparent'
+                }`}
+              >
+                <Icon
+                  className={`w-3.5 h-3.5 stroke-[1.6] ${
+                    active ? 'text-[var(--accent-cyan)]' : ''
+                  }`}
+                />
+                <span className="hidden lg:inline whitespace-nowrap">{label}</span>
+                <span className="hidden sm:inline lg:hidden whitespace-nowrap">{shortLabel}</span>
+              </button>
+            );
+          })}
         </nav>
       </div>
 
       {/* Right Instrument Controls */}
-      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+      <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
         {/* Live Streaming CDC Toggle */}
         <button
           type="button"
           data-testid="cdc-stream-toggle"
           onClick={onToggleCdcStream}
           title="Toggle +5,000 tx/sec Simulated Kafka CDC Ingest"
-          className={`flex items-center gap-1.5 px-2 py-1 rounded border font-mono-tech text-[10.5px] font-medium transition-colors cursor-pointer ${
+          className={`hidden sm:flex items-center gap-1 px-2 py-1 rounded border font-mono-tech text-[10px] font-medium transition-colors cursor-pointer ${
             cdcTelemetry.isStreaming
               ? cdcTelemetry.burstAlertActive
                 ? 'border-[var(--accent-signal)] bg-[var(--accent-signal-soft)] text-[var(--accent-signal)]'
@@ -188,20 +191,18 @@ export const TopBar: React.FC<TopBarProps> = ({
             }`}
           />
           <Radio className="w-3 h-3 shrink-0" />
-          <span className="hidden xl:inline">
+          <span className="hidden 2xl:inline">
             {cdcTelemetry.isStreaming
               ? `${copy.liveCdcActive} +${(cdcTelemetry.currentRateTxSec / 1000).toFixed(1)}K/s`
               : copy.liveCdcLabel}
           </span>
-          <span className="xl:hidden">
-            {cdcTelemetry.isStreaming ? 'LIVE' : 'CDC'}
-          </span>
+          <span className="2xl:hidden">{cdcTelemetry.isStreaming ? 'LIVE' : 'CDC'}</span>
         </button>
 
         {/* Live OLAP Engine Badge */}
         <div
           data-testid="engine-badge"
-          className="hidden xl:flex items-center gap-1.5 px-2 py-1 rounded border border-[var(--border-hairline)] bg-[var(--bg-inset)] font-mono-tech text-[11px]"
+          className="hidden 2xl:flex items-center gap-1.5 px-2 py-1 rounded border border-[var(--border-hairline)] bg-[var(--bg-inset)] font-mono-tech text-[10.5px]"
         >
           <span
             className={`w-1.5 h-1.5 rounded-full animate-telemetry-dot ${
@@ -216,7 +217,7 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         {/* Dataset Row Scale Selector */}
         <div
-          className="hidden md:flex items-center rounded border border-[var(--border-hairline)] bg-[var(--bg-inset)] p-0.5"
+          className="hidden xl:flex items-center rounded border border-[var(--border-hairline)] bg-[var(--bg-inset)] p-0.5"
           title={copy.datasetScale}
         >
           {SCALES.map((scale) => {
@@ -228,7 +229,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 type="button"
                 disabled={isLoadingScale}
                 onClick={() => onRowScaleChange(scale)}
-                className={`px-2 py-0.5 rounded-[3px] font-mono-tech text-[10px] transition-colors cursor-pointer ${
+                className={`px-1.5 py-0.5 rounded-[3px] font-mono-tech text-[9.5px] transition-colors cursor-pointer ${
                   active
                     ? 'bg-[var(--accent-signal)] text-white font-semibold'
                     : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
@@ -240,16 +241,29 @@ export const TopBar: React.FC<TopBarProps> = ({
           })}
         </div>
 
+        {/* Enterprise License Commissioning VietQR CTA */}
+        <button
+          type="button"
+          data-testid="enterprise-license-btn"
+          onClick={onOpenEnterpriseLicense}
+          title={copy.enterpriseModalTitle}
+          className="flex items-center gap-1 px-2 py-1 rounded border border-[var(--accent-signal)]/55 bg-[var(--accent-signal-soft)] hover:bg-[var(--accent-signal)] hover:text-white text-[var(--accent-signal)] font-mono-tech text-[10px] font-semibold transition-colors cursor-pointer whitespace-nowrap"
+        >
+          <ShieldCheck className="w-3 h-3 shrink-0" />
+          <span className="hidden md:inline">{copy.enterpriseLicenseBtn}</span>
+          <span className="md:hidden">PRO</span>
+        </button>
+
         {/* CMD+K Button */}
         <button
           type="button"
           data-testid="cmd-palette-trigger"
           onClick={onOpenCommandPalette}
-          className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded border border-[var(--border-hairline)] bg-[var(--bg-inset)] hover:border-[var(--border-strong)] text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+          aria-label="Open command palette"
+          className="hidden md:flex items-center gap-1 px-1.5 py-1 rounded border border-[var(--border-hairline)] bg-[var(--bg-inset)] hover:border-[var(--border-strong)] text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
         >
           <Command className="w-3 h-3" />
-          <span className="hidden 2xl:inline">{copy.cmdPalette}</span>
-          <kbd className="font-mono-tech text-[10px] px-1 py-0.2 rounded bg-[var(--bg-elevated)] text-[var(--text-secondary)]">
+          <kbd className="font-mono-tech text-[9.5px] px-1 rounded bg-[var(--bg-elevated)] text-[var(--text-secondary)]">
             K
           </kbd>
         </button>
@@ -259,7 +273,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           type="button"
           data-testid="locale-toggle"
           onClick={onToggleLocale}
-          className="flex items-center gap-1 px-2 py-1 rounded border border-[var(--border-hairline)] bg-[var(--bg-inset)] hover:border-[var(--border-strong)] font-mono-tech text-[11px] text-[var(--text-secondary)] transition-colors cursor-pointer"
+          className="flex items-center gap-1 px-1.5 py-1 rounded border border-[var(--border-hairline)] bg-[var(--bg-inset)] hover:border-[var(--border-strong)] font-mono-tech text-[10.5px] text-[var(--text-secondary)] transition-colors cursor-pointer"
           title="Switch UI language (EN / VI)"
         >
           <Globe className="w-3 h-3 text-[var(--text-muted)]" />

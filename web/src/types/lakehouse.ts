@@ -2,7 +2,7 @@ export type ThemeMode = 'dark' | 'light';
 export type Locale = 'en' | 'vi';
 export type EngineBackend = 'DUCKDB-WASM' | 'FALLBACK-OLAP';
 export type RendererBackend = 'WEBGPU WGSL' | 'WEBGL2 FALLBACK' | 'CANVAS2D FALLBACK';
-export type WorkspaceTab = 'workbench' | 'multiplayer' | 'architecture';
+export type WorkspaceTab = 'workbench' | 'ingest' | 'cohorts' | 'multiplayer' | 'architecture';
 
 export type RegionCode = 'APAC-VN' | 'APAC-SG' | 'NA-WEST' | 'NA-EAST' | 'EU-CENTRAL';
 
@@ -33,11 +33,48 @@ export interface ColumnarTransactions {
   gpuVertexBuffer: Float32Array;
 }
 
+export type InferredColumnType = 'Numeric' | 'String' | 'Date' | 'Boolean';
+
+export interface ColumnProfile {
+  name: string;
+  inferredType: InferredColumnType;
+  sqlType: string;
+  rowCount: number;
+  nullCount: number;
+  nullRatePct: number;
+  cardinality: number;
+  min?: number | string;
+  max?: number | string;
+  mean?: number;
+  p50?: number;
+  p95?: number;
+  topValues?: { value: string; count: number }[];
+  sampleValues: string[];
+}
+
+export interface DatasetProfile {
+  tableName: string;
+  sourceName: string;
+  format: 'csv' | 'json' | 'sample';
+  rowCount: number;
+  columnCount: number;
+  parseMs: number;
+  estimatedBytes: number;
+  ingestedAt: string;
+  columns: ColumnProfile[];
+}
+
+export type EnterpriseSampleId =
+  | 'vn_retail_pos_50k'
+  | 'saas_mrr_cohorts'
+  | 'supply_chain_freight';
+
 export interface TableSchemaInfo {
   name: string;
   rowCount: number;
-  source: 'synthetic' | 'uploaded';
+  source: 'synthetic' | 'uploaded' | 'sample';
   columns: { name: string; type: string }[];
+  profile?: DatasetProfile;
 }
 
 export interface SqlQueryResult {
@@ -257,7 +294,15 @@ export interface QueryPlanAnalysis {
   arrowBuffers: ArrowColumnBufferStat[];
 }
 
-export type QueryHistorySource = 'manual' | 'preset' | 'brush' | 'copilot' | 'cdc' | 'peer';
+export type QueryHistorySource =
+  | 'manual'
+  | 'preset'
+  | 'brush'
+  | 'copilot'
+  | 'cdc'
+  | 'peer'
+  | 'notebook'
+  | 'nl2sql';
 
 export interface QueryHistoryEntry {
   id: string;
@@ -303,4 +348,94 @@ export interface LakehouseSnapshotPayload {
     rows: Record<string, unknown>[];
   } | null;
   queryHistory: QueryHistoryEntry[];
+}
+
+export type PivotAggregation = 'SUM' | 'AVG' | 'COUNT' | 'MAX';
+
+export interface PivotConfig {
+  rowDim: string;
+  colDim: string;
+  metricCol: string;
+  aggregation: PivotAggregation;
+}
+
+export interface PivotCellValue {
+  value: number;
+  count: number;
+}
+
+export interface PivotMatrixResult {
+  config: PivotConfig;
+  rowKeys: string[];
+  colKeys: string[];
+  matrix: Record<string, Record<string, PivotCellValue>>;
+  rowTotals: Record<string, number>;
+  colTotals: Record<string, number>;
+  grandTotal: number;
+  minCellValue: number;
+  maxCellValue: number;
+  truncatedCols: number;
+}
+
+export type NotebookCellViewMode = 'grid' | 'chart' | 'pivot' | 'plan';
+
+export interface NotebookCell {
+  id: string;
+  title: string;
+  sql: string;
+  viewMode: NotebookCellViewMode;
+  result: SqlQueryResult | null;
+  rawExplainText: string | null;
+  isRunning: boolean;
+  lastExecutedAt: string | null;
+  pivotConfig?: PivotConfig;
+  collapsed?: boolean;
+}
+
+export type CohortGranularity = 'monthly' | 'weekly';
+export type CohortMetricMode = 'retention_pct' | 'nrr_pct' | 'expansion_vnd';
+export type CohortSegmentFilter = 'ALL' | 'Enterprise' | 'Mid-Market' | 'Growth';
+
+export interface CohortCellMetric {
+  periodIndex: number;
+  activeAccounts: number;
+  churnedAccounts: number;
+  retentionPct: number;
+  baseMrrVnd: number;
+  netMrrVnd: number;
+  expansionVnd: number;
+  nrrPct: number;
+}
+
+export interface CohortRowData {
+  cohortLabel: string;
+  cohortSize: number;
+  initialMrrVnd: number;
+  cells: (CohortCellMetric | null)[];
+}
+
+export interface CohortHeatmapModel {
+  granularity: CohortGranularity;
+  segment: CohortSegmentFilter;
+  periods: string[];
+  rows: CohortRowData[];
+  summary: {
+    totalAccounts: number;
+    avgM3RetentionPct: number;
+    avgLatestNrrPct: number;
+    totalExpansionMrrVnd: number;
+    churnedMrrAtRiskVnd: number;
+  };
+}
+
+export interface NlSqlTranslation {
+  prompt: string;
+  intent: string;
+  sql: string;
+  targetTable: string;
+  requiredSampleDataset?: EnterpriseSampleId;
+  confidence: number;
+  explanationEn: string;
+  explanationVi: string;
+  matchedTokens: string[];
 }

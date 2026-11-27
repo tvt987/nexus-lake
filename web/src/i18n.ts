@@ -44,25 +44,58 @@ export interface CopyDict {
   brushHint: string;
   applyBrushSql: string;
   clearBrush: string;
+  // v3.0 ENTERPRISE SUPER VIP PRO copy
+  tabIngest: string;
+  tabCohorts: string;
+  enterpriseLicenseBtn: string;
+  enterpriseModalTitle: string;
+  enterpriseModalSubtitle: string;
+  nl2sqlTitle: string;
+  nl2sqlPlaceholder: string;
+  nl2sqlCompileRun: string;
+  notebookTitle: string;
+  addCell: string;
+  runAllCells: string;
+  viewGrid: string;
+  viewChart: string;
+  viewPivot: string;
+  viewPlan: string;
+  pivotRowDim: string;
+  pivotColDim: string;
+  pivotMetric: string;
+  pivotAgg: string;
+  ingestStudioTitle: string;
+  ingestDropHeadline: string;
+  ingestDropSub: string;
+  sampleDatasetsTitle: string;
+  schemaProfilerTitle: string;
+  cohortStudioTitle: string;
+  cohortMonthly: string;
+  cohortWeekly: string;
+  cohortRetentionMode: string;
+  cohortNrrMode: string;
+  cohortExpansionMode: string;
 }
 
 export const COPY: Record<Locale, CopyDict> = {
   en: {
-    subtitle: 'LOCAL-FIRST OLAP LAKEHOUSE & AI BI WORKBENCH',
-    tabWorkbench: 'SQL + GPU Workbench',
-    tabMultiplayer: 'CRDT Multiplayer Lab',
-    tabArchitecture: 'MCP + Architecture',
+    subtitle: 'ENTERPRISE DUCKDB-WASM LAKEHOUSE & AI SQL NOTEBOOK',
+    tabWorkbench: 'SQL Notebook + GPU',
+    tabIngest: 'Ingest & Profiler',
+    tabCohorts: 'Cohort Heatmap',
+    tabMultiplayer: 'CRDT Lab',
+    tabArchitecture: 'Architecture',
     cmdPalette: 'Command',
     datasetScale: 'Rows',
     semanticSearchPlaceholder: 'Semantic vector search (e.g. fraud spikes by region)...',
     tablesSection: 'LAKEHOUSE CATALOG',
-    dropCsvJson: 'Drop CSV or JSON to ingest into DuckDB-WASM',
+    dropCsvJson: 'Drop CSV or JSON to profile & ingest into DuckDB-WASM',
     savedNotebooks: 'LOCAL NOTEBOOKS (IDB)',
     saveNotebook: 'Save',
     storageTitle: 'LOCAL STORAGE',
     clearStorage: 'Reset',
     runQuery: 'Run Query',
-    exportCsv: 'CSV',
+    exportCsv: 'CSV BOM',
     exportJson: 'JSON',
     presetsLabel: 'ANALYTICS PRESETS',
     gpuCanvasTitle: 'HIGH-DENSITY ANOMALY CANVAS',
@@ -92,23 +125,56 @@ export const COPY: Record<Locale, CopyDict> = {
     brushHint: 'DRAG TO LASSO CLUSTER -> SQL',
     applyBrushSql: 'Apply Brush to SQL',
     clearBrush: 'Clear Selection',
+    enterpriseLicenseBtn: 'Enterprise · 14.9M',
+    enterpriseModalTitle: 'ENTERPRISE LAKEHOUSE COMMISSIONING',
+    enterpriseModalSubtitle:
+      'Deploy NEXUS LAKE v3.0 inside your VPC with full TypeScript/DuckDB-WASM source ownership, MCP Server & Principal Architect support.',
+    nl2sqlTitle: 'NL-TO-SQL COPILOT (OFFLINE VI/EN)',
+    nl2sqlPlaceholder:
+      'Ask in English or Vietnamese: e.g. "Top 10 products by gross margin" or "Churned enterprise accounts > 50M VND"...',
+    nl2sqlCompileRun: 'Compile & Run',
+    notebookTitle: 'MULTI-CELL INTERACTIVE SQL NOTEBOOK',
+    addCell: 'Add Cell',
+    runAllCells: 'Run All',
+    viewGrid: 'Data Grid',
+    viewChart: 'SVG Chart',
+    viewPivot: 'Pivot Matrix',
+    viewPlan: 'EXPLAIN Plan',
+    pivotRowDim: 'Rows',
+    pivotColDim: 'Columns',
+    pivotMetric: 'Metric',
+    pivotAgg: 'Agg',
+    ingestStudioTitle: 'LOCAL CSV / JSON INGESTION & COLUMN PROFILER',
+    ingestDropHeadline: 'Drag & drop any local .csv or .json file here, or click to browse',
+    ingestDropSub:
+      '100% browser-local execution: automatic Numeric / String / Date / Boolean inference, null counts, cardinality & P95 quantiles.',
+    sampleDatasetsTitle: '1-CLICK ENTERPRISE SAMPLE DATASETS',
+    schemaProfilerTitle: 'COLUMN SCHEMA & STATISTICAL PROFILER',
+    cohortStudioTitle: 'LIVE COHORT RETENTION & EXPANSION HEATMAP',
+    cohortMonthly: 'Monthly (M0-M6)',
+    cohortWeekly: 'Weekly (W0-W6)',
+    cohortRetentionMode: 'Logo Retention %',
+    cohortNrrMode: 'Net Revenue Retention %',
+    cohortExpansionMode: 'Expansion MRR (VND)',
   },
   vi: {
-    subtitle: 'KHO DỮ LIỆU OLAP LOCAL-FIRST & TRẠM PHÂN TÍCH AI BI',
-    tabWorkbench: 'Trạm SQL + WebGPU',
-    tabMultiplayer: 'Phòng Lab CRDT Đa Người Dùng',
-    tabArchitecture: 'MCP & Kiến Trúc',
+    subtitle: 'KHO DỮ LIỆU DUCKDB-WASM DOANH NGHIỆP & SỔ TAY SQL AI',
+    tabWorkbench: 'Sổ Tay SQL + GPU',
+    tabIngest: 'Nạp Dữ Liệu & Hồ Sơ',
+    tabCohorts: 'Bản Đồ Cohort',
+    tabMultiplayer: 'Lab CRDT',
+    tabArchitecture: 'Kiến Trúc',
     cmdPalette: 'Lệnh nhanh',
     datasetScale: 'Dòng dữ liệu',
     semanticSearchPlaceholder: 'Tìm vector ngữ nghĩa (vd: fraud spikes by region)...',
     tablesSection: 'DANH MỤC LAKEHOUSE',
-    dropCsvJson: 'Kéo thả CSV hoặc JSON để nạp vào DuckDB-WASM',
+    dropCsvJson: 'Kéo thả CSV hoặc JSON để phân tích & nạp vào DuckDB-WASM',
     savedNotebooks: 'SỔ SQL CỤC BỘ (IDB)',
     saveNotebook: 'Lưu SQL',
     storageTitle: 'LƯU TRỮ CỤC BỘ',
     clearStorage: 'Đặt lại',
     runQuery: 'Chạy SQL',
-    exportCsv: 'CSV',
+    exportCsv: 'CSV BOM',
     exportJson: 'JSON',
     presetsLabel: 'TRUY VẤN MẪU OLAP',
     gpuCanvasTitle: 'BẢN ĐỒ BẤT THƯỜNG WEBGPU 100K+ ĐIỂM',
@@ -138,5 +204,36 @@ export const COPY: Record<Locale, CopyDict> = {
     brushHint: 'KÉO CHỌN CỤM -> TẠO SQL',
     applyBrushSql: 'Áp Dụng Vùng Chọn Vào SQL',
     clearBrush: 'Xóa Vùng Chọn',
+    enterpriseLicenseBtn: 'Bản Quyền · 14.9M',
+    enterpriseModalTitle: 'TRIỂN KHAI BẢN QUYỀN DOANH NGHIỆP',
+    enterpriseModalSubtitle:
+      'Sở hữu trọn bộ mã nguồn NEXUS LAKE v3.0 triển khai nội bộ VPC cùng MCP Lakehouse Server & hỗ trợ trực tiếp từ Solution Architect.',
+    nl2sqlTitle: 'TRỢ LÝ NL-TO-SQL OFFLINE (VI/EN)',
+    nl2sqlPlaceholder:
+      'Nhập câu hỏi Tiếng Việt/Anh: vd "Top 10 sản phẩm biên lợi nhuận cao nhất" hoặc "Tài khoản doanh nghiệp rời bỏ > 50 triệu VND"...',
+    nl2sqlCompileRun: 'Biên Dịch & Chạy',
+    notebookTitle: 'SỔ TAY SQL TƯƠNG TÁC ĐA Ô (MULTI-CELL)',
+    addCell: 'Thêm Ô SQL',
+    runAllCells: 'Chạy Tất Cả',
+    viewGrid: 'Bảng Dữ Liệu',
+    viewChart: 'Biểu Đồ SVG',
+    viewPivot: 'Ma Trận Pivot',
+    viewPlan: 'Kế Hoạch EXPLAIN',
+    pivotRowDim: 'Hàng',
+    pivotColDim: 'Cột',
+    pivotMetric: 'Chỉ Số',
+    pivotAgg: 'Hàm',
+    ingestStudioTitle: 'NẠP DỮ LIỆU CSV / JSON & PHÂN TÍCH HỒ SƠ CỘT',
+    ingestDropHeadline: 'Kéo thả tệp .csv hoặc .json cục bộ vào đây, hoặc nhấn để chọn tệp',
+    ingestDropSub:
+      'Chạy 100% tại trình duyệt: tự suy luận kiểu Numeric / String / Date / Boolean, đếm null, cardinality & phân vị P95.',
+    sampleDatasetsTitle: '3 BỘ DỮ LIỆU DOANH NGHIỆP 1-CLICK',
+    schemaProfilerTitle: 'LƯỢC ĐỒ CỘT & THỐNG KÊ CHUYÊN SÂU',
+    cohortStudioTitle: 'BẢN ĐỒ NHIỆT GIỮ CHÂN COHORT & MỞ RỘNG DOANH THU',
+    cohortMonthly: 'Theo Tháng (M0-M6)',
+    cohortWeekly: 'Theo Tuần (W0-W6)',
+    cohortRetentionMode: 'Giữ Chân Logo %',
+    cohortNrrMode: 'Mở Rộng Doanh Thu NRR %',
+    cohortExpansionMode: 'MRR Mở Rộng (VND)',
   },
 };

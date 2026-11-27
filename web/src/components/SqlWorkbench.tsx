@@ -53,6 +53,8 @@ const SOURCE_BADGE: Record<QueryHistorySource, string> = {
   manual: 'text-[var(--text-secondary)] bg-[var(--bg-elevated)]',
   cdc: 'text-[var(--accent-emerald)] bg-[var(--accent-emerald-soft)]',
   peer: 'text-[var(--accent-amber)] bg-[var(--bg-elevated)]',
+  notebook: 'text-[var(--accent-cyan)] bg-[var(--accent-cyan-soft)]',
+  nl2sql: 'text-[var(--accent-signal)] bg-[var(--accent-signal-soft)]',
 };
 
 export const SqlWorkbench: React.FC<SqlWorkbenchProps> = ({

@@ -5,15 +5,22 @@ import type {
   SqlQueryResult,
 } from '../types/lakehouse';
 
-const TEMPORAL_HINTS = ['hour', 'time', 'date', 'day', 'bucket', 'ts', 'timestamp', 'minute'];
+const TEMPORAL_HINTS = ['hour', 'time', 'date', 'day', 'bucket', 'ts', 'timestamp', 'minute', 'month'];
 const METRIC_PRIORITY = [
   'gross_volume_usd',
+  'gross_margin_vnd',
+  'revenue_vnd',
+  'net_mrr_vnd',
+  'lost_mrr_vnd',
+  'total_freight_vnd',
   'exposed_usd',
   'hourly_usd',
   'redeemed_usd',
   'p99_ms',
   'amount_usd',
   'rolling_24h_avg_usd',
+  'mom_growth_pct',
+  'margin_pct',
   'tx_count',
   'burst_txs',
   'flagged_anomalies',
@@ -199,6 +206,12 @@ export function extractAutoChart(
 
 export function formatChartMetricValue(col: string, val: number): string {
   const lower = col.toLowerCase();
+  if (lower.includes('vnd')) {
+    if (Math.abs(val) >= 1_000_000_000) return `${(val / 1_000_000_000).toFixed(2)}B ₫`;
+    if (Math.abs(val) >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M ₫`;
+    if (Math.abs(val) >= 1_000) return `${(val / 1_000).toFixed(0)}K ₫`;
+    return `${val.toFixed(0)} ₫`;
+  }
   if (lower.includes('usd') || lower.includes('amount') || lower.includes('volume')) {
     if (Math.abs(val) >= 1_000_000) return `$${(val / 1_000_000).toFixed(2)}M`;
     if (Math.abs(val) >= 1_000) return `$${(val / 1_000).toFixed(1)}K`;

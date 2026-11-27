@@ -19,8 +19,10 @@ import {
 } from 'lucide-react';
 import type { CopyDict } from '../i18n';
 import type { LocalSemanticVectorIndex } from '../engine/vectorIndex';
+import { ENTERPRISE_SAMPLE_CATALOG } from '../engines/ingestionEngine';
 import type {
   CdcTelemetryState,
+  EnterpriseSampleId,
   SavedNotebook,
   StorageTelemetry,
   TableSchemaInfo,
@@ -38,18 +40,12 @@ interface SidebarCatalogProps {
   onExportSnapshot: () => void;
   onSelectSql: (sql: string, autoRun?: boolean) => void;
   onUploadFile: (fileName: string, content: string) => Promise<void>;
+  onLoadEnterpriseSample: (sampleId: EnterpriseSampleId, openNotebook?: boolean) => Promise<void>;
+  onOpenIngestProfiler: () => void;
   onSaveCurrentNotebook: () => void;
   onDeleteNotebook: (id: string) => void;
   onClearStorage: () => void;
 }
-
-const SAMPLE_CSV = `merchant_id,region,tier,monthly_gmv_usd,chargeback_bps
-MCH-001,APAC-VN,ENTERPRISE,482000,14
-MCH-002,APAC-SG,ENTERPRISE,619500,8
-MCH-003,NA-WEST,GROWTH,275400,31
-MCH-004,NA-EAST,ENTERPRISE,540100,19
-MCH-005,EU-CENTRAL,GROWTH,312800,11
-MCH-006,APAC-VN,GROWTH,198300,47`;
 
 function formatBytes(bytes: number): string {
   if (bytes <= 0) return '0 KB';
@@ -68,6 +64,8 @@ export const SidebarCatalog: React.FC<SidebarCatalogProps> = ({
   onExportSnapshot,
   onSelectSql,
   onUploadFile,
+  onLoadEnterpriseSample,
+  onOpenIngestProfiler,
   onSaveCurrentNotebook,
   onDeleteNotebook,
   onClearStorage,
@@ -97,9 +95,10 @@ export const SidebarCatalog: React.FC<SidebarCatalogProps> = ({
     setUploadStatus(`Ingested ${file.name}`);
   };
 
-  const handleLoadSampleCsv = async () => {
-    await onUploadFile('merchant_tiers.csv', SAMPLE_CSV);
-    setUploadStatus('Ingested merchant_tiers.csv (6 rows)');
+  const handleQuickSample = async (id: EnterpriseSampleId) => {
+    setUploadStatus(`Mounting ${id}...`);
+    await onLoadEnterpriseSample(id, true);
+    setUploadStatus(`Mounted ${id}`);
   };
 
   return (
@@ -275,13 +274,39 @@ export const SidebarCatalog: React.FC<SidebarCatalogProps> = ({
               </p>
             )}
           </div>
-          <button
-            type="button"
-            onClick={() => void handleLoadSampleCsv()}
-            className="mt-1.5 w-full py-1 px-2 rounded border border-[var(--border-hairline)] bg-[var(--bg-inset)] hover:border-[var(--border-strong)] font-mono-tech text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
-          >
-            + Ingest Sample merchant_tiers.csv
-          </button>
+          <div className="mt-2 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="font-mono-tech text-[9px] uppercase tracking-wider text-[var(--text-muted)]">
+                1-CLICK SAMPLES
+              </span>
+              <button
+                type="button"
+                onClick={onOpenIngestProfiler}
+                className="font-mono-tech text-[9px] text-[var(--accent-cyan)] hover:underline cursor-pointer"
+              >
+                Profiler -&gt;
+              </button>
+            </div>
+            {ENTERPRISE_SAMPLE_CATALOG.map((s) => {
+              const loaded = tables.some((t) => t.name === s.tableName);
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  data-testid={`sidebar-sample-${s.id}`}
+                  onClick={() => void handleQuickSample(s.id)}
+                  className={`w-full py-1 px-2 rounded border font-mono-tech text-[9.5px] flex items-center justify-between gap-1.5 transition-colors cursor-pointer ${
+                    loaded
+                      ? 'border-[var(--accent-emerald)]/45 bg-[var(--accent-emerald-soft)] text-[var(--accent-emerald)]'
+                      : 'border-[var(--border-hairline)] bg-[var(--bg-inset)] hover:border-[var(--accent-cyan)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
+                >
+                  <span className="truncate">+ {s.titleEn}</span>
+                  <span className="text-[8.5px] opacity-80 shrink-0">{s.badge}</span>
+                </button>
+              );
+            })}
+          </div>
         </section>
 
         {/* Live Kafka CDC Stream & Snapshot Card */}

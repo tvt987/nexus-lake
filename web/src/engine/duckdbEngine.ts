@@ -10,6 +10,11 @@ import {
   REGIONS,
   VOUCHER_CODES,
 } from './dataGenerator';
+import {
+  buildArrowIpcFromRows,
+  parseAndProfileFile,
+  type IngestedDataset,
+} from '../engines/ingestionEngine';
 import type {
   ColumnarTransactions,
   EngineBackend,
@@ -58,34 +63,6 @@ function normalizeCellValue(val: unknown): unknown {
   return val;
 }
 
-function sanitizeTableName(fileName: string): string {
-  const base = fileName.replace(/\.[^.]+$/, '').toLowerCase();
-  const clean = base.replace(/[^a-z0-9_]/g, '_').replace(/^_+/, '');
-  if (!clean) return 'uploaded_table';
-  return /^[0-9]/.test(clean) ? `t_${clean}` : clean;
-}
-
-function parseSimpleCsv(text: string): Record<string, unknown>[] {
-  const lines = text
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(',').map((h) => h.trim().replace(/^"|"$/g, ''));
-  const rows: Record<string, unknown>[] = [];
-  for (let i = 1; i < lines.length; i += 1) {
-    const parts = lines[i].split(',').map((p) => p.trim().replace(/^"|"$/g, ''));
-    const obj: Record<string, unknown> = {};
-    for (let c = 0; c < headers.length; c += 1) {
-      const raw = parts[c] ?? '';
-      const num = Number(raw);
-      obj[headers[c]] = raw !== '' && !Number.isNaN(num) ? num : raw;
-    }
-    rows.push(obj);
-  }
-  return rows;
-}
-
 /**
  * Pure TypeScript OLAP fallback engine when WebAssembly Workers are unavailable
  * (e.g., jsdom test environments or restricted browser contexts).
@@ -99,24 +76,101 @@ export function runFallbackSql(
   const clean = sql.trim().replace(/;\s*$/, '');
   const upper = clean.toUpperCase();
 
-  // Check if querying an uploaded custom table
-  const fromMatch = clean.match(/\bFROM\s+([a-zA-Z0-9_]+)/i);
+  // Check if querying an uploaded or enterprise sample table (supports optional quotes & CTEs)
+  const fromMatch = clean.match(/\bFROM\s+"?([a-zA-Z0-9_]+)"?/i);
   const tableName = fromMatch ? fromMatch[1].toLowerCase() : 'transactions';
 
   if (tableName !== 'transactions' && uploadedTables.has(tableName)) {
-    const rows = uploadedTables.get(tableName) ?? [];
+    const allRows = uploadedTables.get(tableName) ?? [];
+    let filtered = allRows;
+
+    // Basic WHERE predicates for fallback mode
+    const eqStrMatches = [...clean.matchAll(/([a-zA-Z0-9_]+)\s*=\s*'([^']+)'/gi)];
+    for (const m of eqStrMatches) {
+      const col = m[1];
+      const expected = m[2];
+      if (col.toUpperCase() === 'REGION' || col in (allRows[0] ?? {})) {
+        filtered = filtered.filter((r) => String(r[col] ?? '') === expected);
+      }
+    }
+    const boolTrueMatches = [...clean.matchAll(/([a-zA-Z0-9_]+)\s*=\s*true\b/gi)];
+    for (const m of boolTrueMatches) {
+      const col = m[1];
+      filtered = filtered.filter((r) => r[col] === true || r[col] === 'true' || r[col] === 1);
+    }
+    const gtNumMatches = [...clean.matchAll(/([a-zA-Z0-9_]+)\s*>\s*(\d+(?:\.\d+)?)/gi)];
+    for (const m of gtNumMatches) {
+      const col = m[1];
+      const threshold = Number(m[2]);
+      if (col in (allRows[0] ?? {})) {
+        filtered = filtered.filter((r) => Number(r[col] ?? -Infinity) > threshold);
+      }
+    }
+
     const limitMatch = clean.match(/\bLIMIT\s+(\d+)/i);
     const limit = limitMatch ? Number(limitMatch[1]) : 200;
-    const sliced = rows.slice(0, limit);
-    const columns = sliced[0] ? Object.keys(sliced[0]) : [];
+
+    // Optional GROUP BY aggregation in fallback mode
+    const groupMatch = clean.match(/\bGROUP\s+BY\s+([a-zA-Z0-9_,\s]+?)(?:\bORDER\b|\bLIMIT\b|\bHAVING\b|$)/i);
+    let outRows: Record<string, unknown>[] = [];
+
+    if (groupMatch && filtered.length > 0) {
+      const groupCols = groupMatch[1]
+        .split(',')
+        .map((s) => s.trim().replace(/^"|"$/g, ''))
+        .filter((c) => c in (filtered[0] ?? {}));
+      const sampleKeys = Object.keys(filtered[0] ?? {});
+      const numericCols = sampleKeys.filter(
+        (k) => !groupCols.includes(k) && typeof filtered[0][k] === 'number',
+      );
+
+      if (groupCols.length > 0) {
+        const groups = new Map<
+          string,
+          { keys: Record<string, unknown>; count: number; sums: Record<string, number> }
+        >();
+        for (const r of filtered) {
+          const gKey = groupCols.map((c) => String(r[c] ?? '')).join('|');
+          let g = groups.get(gKey);
+          if (!g) {
+            const keys: Record<string, unknown> = {};
+            for (const c of groupCols) keys[c] = r[c];
+            const sums: Record<string, number> = {};
+            for (const nc of numericCols) sums[nc] = 0;
+            g = { keys, count: 0, sums };
+            groups.set(gKey, g);
+          }
+          g.count += 1;
+          for (const nc of numericCols) {
+            g.sums[nc] += Number(r[nc] ?? 0) || 0;
+          }
+        }
+        outRows = [...groups.values()].map((g) => {
+          const row: Record<string, unknown> = { ...g.keys, row_count: g.count };
+          for (const nc of numericCols.slice(0, 4)) {
+            row[nc] = Number(g.sums[nc].toFixed(2));
+          }
+          return row;
+        });
+        const sortCol = numericCols[0] ?? 'row_count';
+        outRows.sort((a, b) => Number(b[sortCol] ?? 0) - Number(a[sortCol] ?? 0));
+        outRows = outRows.slice(0, limit);
+      } else {
+        outRows = filtered.slice(0, limit);
+      }
+    } else {
+      outRows = filtered.slice(0, limit);
+    }
+
+    const columns = outRows[0] ? Object.keys(outRows[0]) : Object.keys(allRows[0] ?? {});
     const elapsed = Math.max(0.2, performance.now() - start);
     return {
       columns,
-      rows: sliced,
-      rowCount: sliced.length,
-      scannedRows: rows.length,
+      rows: outRows,
+      rowCount: outRows.length,
+      scannedRows: allRows.length,
       executionMs: Number(elapsed.toFixed(2)),
-      rowsPerSec: Math.round((rows.length / elapsed) * 1000),
+      rowsPerSec: Math.round((allRows.length / elapsed) * 1000),
       engine: 'FALLBACK-OLAP',
       sql,
     };
@@ -435,6 +489,14 @@ export class NexusDuckDbEngine {
     return [...this.tables];
   }
 
+  public hasTable(tableName: string): boolean {
+    return this.tables.some((t) => t.name.toLowerCase() === tableName.toLowerCase());
+  }
+
+  public getUploadedRows(tableName: string): Record<string, unknown>[] | undefined {
+    return this.uploadedTables.get(tableName.toLowerCase());
+  }
+
   public async initialize(initialDataset: ColumnarTransactions): Promise<{
     backend: EngineBackend;
     loadMs: number;
@@ -452,10 +514,16 @@ export class NexusDuckDbEngine {
         throw new Error('DuckDB-WASM local bundle resolution returned empty URLs');
       }
 
-      const worker = new Worker(bundle.mainWorker);
+      const resolveAssetUrl = (u: string): string =>
+        typeof window !== 'undefined' ? new URL(u, window.location.href).href : u;
+
+      const worker = new Worker(resolveAssetUrl(bundle.mainWorker));
       const logger = new duckdb.ConsoleLogger(duckdb.LogLevel.WARNING);
       const db = new duckdb.AsyncDuckDB(logger, worker);
-      await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+      await db.instantiate(
+        resolveAssetUrl(bundle.mainModule),
+        bundle.pthreadWorker ? resolveAssetUrl(bundle.pthreadWorker) : undefined,
+      );
       const conn = await db.connect();
 
       this.worker = worker;
@@ -606,25 +674,21 @@ export class NexusDuckDbEngine {
     return null;
   }
 
-  public async ingestFile(fileName: string, content: string): Promise<TableSchemaInfo> {
-    const tableName = sanitizeTableName(fileName);
-    const isJson = fileName.toLowerCase().endsWith('.json');
+  public async ingestStructuredDataset(
+    ingested: IngestedDataset,
+    source: 'uploaded' | 'sample' = 'sample',
+  ): Promise<TableSchemaInfo> {
+    const { tableName, rows, profile } = ingested;
+    this.uploadedTables.set(tableName, rows);
 
-    if (this.backend === 'DUCKDB-WASM' && this.db && this.conn) {
-      const virtualPath = `upload_${Date.now()}_${fileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-      await this.db.registerFileText(virtualPath, content);
-      if (isJson) {
-        await this.conn.query(
-          `CREATE OR REPLACE TABLE "${tableName}" AS SELECT * FROM read_json_auto('${virtualPath}');`,
-        );
-      } else {
-        await this.conn.query(
-          `CREATE OR REPLACE TABLE "${tableName}" AS SELECT * FROM read_csv_auto('${virtualPath}');`,
-        );
-      }
+    if (this.backend === 'DUCKDB-WASM' && this.conn) {
+      const ipcBytes = ingested.arrowIpcBytes ?? buildArrowIpcFromRows(rows, profile);
+      await this.conn.query(`DROP TABLE IF EXISTS "${tableName}";`);
+      await this.conn.insertArrowFromIPCStream(ipcBytes, {
+        name: tableName,
+        create: true,
+      });
 
-      const countRes = await this.conn.query(`SELECT COUNT(*) AS cnt FROM "${tableName}"`);
-      const rowCount = Number(countRes.toArray()[0]?.cnt ?? 0);
       const descRes = await this.conn.query(`DESCRIBE "${tableName}"`);
       const columns = descRes.toArray().map((row) => {
         const r = row.toJSON() as Record<string, unknown>;
@@ -636,41 +700,41 @@ export class NexusDuckDbEngine {
 
       const info: TableSchemaInfo = {
         name: tableName,
-        rowCount,
-        source: 'uploaded',
+        rowCount: rows.length,
+        source,
         columns,
+        profile,
       };
       this.tables = [...this.tables.filter((t) => t.name !== tableName), info];
       return info;
     }
 
-    // Fallback in-memory CSV / JSON ingestion
-    let rows: Record<string, unknown>[] = [];
-    if (isJson) {
-      const parsed = JSON.parse(content);
-      rows = Array.isArray(parsed) ? parsed : [parsed];
-    } else {
-      rows = parseSimpleCsv(content);
-    }
-    this.uploadedTables.set(tableName, rows);
-    const sample = rows[0] ?? {};
-    const columns = Object.keys(sample).map((key) => ({
-      name: key,
-      type: typeof sample[key] === 'number' ? 'DOUBLE' : 'VARCHAR',
+    const columns = profile.columns.map((c) => ({
+      name: c.name,
+      type: c.sqlType,
     }));
     const info: TableSchemaInfo = {
       name: tableName,
       rowCount: rows.length,
-      source: 'uploaded',
+      source,
       columns,
+      profile,
     };
     this.tables = [...this.tables.filter((t) => t.name !== tableName), info];
     return info;
   }
 
+  public async ingestFile(fileName: string, content: string): Promise<TableSchemaInfo> {
+    const ingested = parseAndProfileFile(fileName, content);
+    return this.ingestStructuredDataset(ingested, 'uploaded');
+  }
+
   public async executeSql(sql: string): Promise<SqlQueryResult> {
     const start = performance.now();
-    const scannedRows = this.dataset?.rowCount ?? 0;
+    const fromMatch = sql.match(/\bFROM\s+"?([a-zA-Z0-9_]+)"?/i);
+    const targetName = fromMatch ? fromMatch[1].toLowerCase() : 'transactions';
+    const matchedTable = this.tables.find((t) => t.name.toLowerCase() === targetName);
+    const scannedRows = matchedTable?.rowCount ?? this.dataset?.rowCount ?? 0;
 
     if (this.backend === 'DUCKDB-WASM' && this.conn) {
       try {

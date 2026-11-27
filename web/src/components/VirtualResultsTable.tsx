@@ -46,6 +46,13 @@ function formatCell(col: string, value: unknown): React.ReactNode {
         </span>
       );
     }
+    if (col.includes('vnd')) {
+      return (
+        <span className="font-mono-tech text-[var(--accent-emerald)]">
+          {Math.round(value).toLocaleString('en-US')} ₫
+        </span>
+      );
+    }
     if (col.includes('usd') || col.includes('amount') || col.includes('volume')) {
       return (
         <span className="font-mono-tech text-[var(--text-primary)]">
