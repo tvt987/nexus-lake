@@ -1,16 +1,16 @@
-# NEXUS LAKE v5.0 — Daylight Analytics Studio, Live Data Quality Contracts (`dbt-test`) & FastAPI MCP Lakehouse
+# NEXUS LAKE v6.0 — Live Interactive GPU 100K-Row OLAP Anomaly Explorer, Direct Lasso Brush-to-SQL & Streaming Medallion CDC Lakehouse
 
 **Author:** Truong Van Tinh (`tvt987`)  
 **Live Studio:** [https://tvt987.github.io/nexus-lake/](https://tvt987.github.io/nexus-lake/)  
-**Stack:** React 19, TypeScript, Vite 6, Tailwind CSS v4 (Crisp Daylight Paper ↔ Obsidian Lakehouse Dual-Theme), `@duckdb/duckdb-wasm`, Apache Arrow IPC, WebGPU (`WGSL`), Yjs CRDT, TanStack Table + Virtual, IndexedDB/OPFS, **Python 3.12 FastAPI + Pydantic v2 + SQLite Read-Only Guardrail + dbt-test / Great Expectations Contract Engine**, Model Context Protocol (`MCP JSON-RPC 2.0`), AG-UI Protocol, Docker Compose (`Nginx` + `FastAPI` + `PostgreSQL 16` + `MinIO`).
+**Stack:** React 19, TypeScript, Vite 6, Tailwind CSS v4 (Crisp Hex × MotherDuck Daylight `#F8FAFC` ↔ Obsidian Lakehouse Dual-Theme), **60fps 100K-Row GPU Spatial-Indexed OLAP Point Cloud + Freehand/Box Lasso Brush-to-SQL + Interactive 3D OLAP Anomaly Cube + Live Bronze → Silver → `dbt-test` Quarantine Gate → Gold Kafka CDC Streaming Pipeline**, `@duckdb/duckdb-wasm`, Apache Arrow IPC, WebGPU (`WGSL`), Yjs CRDT, TanStack Table + Virtual, IndexedDB/OPFS, **Python 3.12 FastAPI + Pydantic v2 + SQLite Read-Only Guardrail + `dbt-test` / Great Expectations Contract Engine**, Model Context Protocol (`MCP JSON-RPC 2.0`), AG-UI Protocol, Docker Compose (`Nginx` + `FastAPI` + `PostgreSQL 16` + `MinIO`).
 
-![NEXUS LAKE v5.0 Daylight Analytics Studio](evidence/preview_desktop.png)
+![NEXUS LAKE v6.0 GPU 100K-Row OLAP & Medallion CDC Studio](evidence/preview_desktop.png)
 
 ---
 
 ## Executive Architecture Summary
 
-**NEXUS LAKE v5.0** upgrades the full-stack analytical lakehouse monorepo into a **MotherDuck / Hex-grade Crisp Daylight Analytics Studio** with a live **Data Quality & Freshness SLA Contract Engine** (`dbt-test` / Great Expectations assertions, 1-click Chaos Injectors, quarantine telemetry, 24-hour SVG freshness timeline, and 1-click `schema.yml` generation) paired with a tested **Python 3.12 FastAPI** analytical backend and standalone **Model Context Protocol (MCP)** server.
+**NEXUS LAKE v6.0** elevates the primary analytical workbench into a **60fps Live GPU 100K-Row Interactive OLAP Point-Cloud Explorer, Direct Lasso Brush-to-SQL Compiler, Interactive 3D OLAP Anomaly Cube, and Streaming Kafka CDC Medallion Pipeline** right above the fold on Hex × MotherDuck Daylight `#F8FAFC` — backed by DuckDB-WASM (`gold_transactions` view), a 32×32 CSR spatial index (`<5ms` Lasso scans over 100K+ rows), a live `dbt-test` Quarantine Gate (`0` corrupted rows entering Gold), Python 3.12 FastAPI analytical endpoints, and a standalone MCP server.
 
 ```mermaid
 flowchart LR
@@ -75,16 +75,16 @@ flowchart LR
 
 ---
 
-## Verified Test, Bundle & Quality Matrix
+## Verified Test, Bundle & Quality Matrix (v6.0)
 
 | Verification Gate | Target | Result | Details |
 | --- | --- | --- | --- |
-| **Gate 1 — Frontend Unit Tests** | `web/` (`npm test`) | **106 / 106 PASSED** | 17 Vitest files (+22 new v5.0 Data Quality & Chaos engine tests) |
+| **Gate 1 — Frontend Unit Tests** | `web/` (`npm test`) | **136 / 136 PASSED** | 18 Vitest files (+30 new v6.0 100K OLAP spatial index, Brush-to-SQL AST guard, 3D Cube & Medallion CDC tests) |
 | **Gate 1b — MCP Server Tests** | `packages/mcp-lakehouse-server` | **12 / 12 PASSED** | 3 Vitest files (SQL AST guardrail, JSON-RPC, Streamable HTTP) |
-| **Gate 2 — Production Build** | `web/` (`npm run build`) | **0 ERRORS** | Entry `index.js`: `109.89 kB` (`30.54 kB` gz); `DataQualityContractLab`: `42.80 kB` (`10.57 kB` gz) |
-| **Gate 3 — FastAPI Backend Tests** | `python -m pytest backend/tests` | **39 / 39 PASSED** | 25 lakehouse/SQLi/CSV/DAG tests + 14 new Data Quality contract tests |
-| **Gate 4 — Playwright E2E (Desktop)** | `1440x900` vs `vite preview` | **0 ERRORS · 0px OVERFLOW** | Verified Daylight boot, Obsidian roundtrip, Chaos drop (`100% -> 32% -> 100%`), dbt YAML, Lineage, Strict CSP |
-| **Gate 4 — Playwright E2E (Mobile)** | `390x844` vs `vite preview` | **0 ERRORS · 0px OVERFLOW** | Verified responsive 7-tab navigation, Chaos Injection + Reset, and `0px` overflow across all 7 tabs |
+| **Gate 2 — Production Build** | `web/` (`npm run build`) | **0 ERRORS** | Entry `index.js`: `86.83 kB` (`24.05 kB` gz); `InteractiveOlapStage`: `68.58 kB` (`21.70 kB` gz) |
+| **Gate 3 — FastAPI Backend Tests** | `python -m pytest backend/tests` | **39 / 39 PASSED** | 25 lakehouse/SQLi/CSV/DAG tests + 14 Data Quality contract tests |
+| **Gate 4 — Playwright E2E (Desktop)** | `1440x900` vs `vite preview` | **0 ERRORS · 0px OVERFLOW** | Verified 100K GPU Scatter, live pointer Lasso drag -> Brush-to-SQL execution, 3D OLAP Cube orbit, Kafka CDC Surge (+10K/s) + Schema Drift Quarantine (`0` Gold corrupt) |
+| **Gate 4 — Playwright E2E (Mobile)** | `390x844` vs `vite preview` | **0 ERRORS · 0px OVERFLOW** | Verified mobile-first Hero GPU OLAP Stage, responsive ribbon pills, unclipped axes & `0px` horizontal overflow |
 
 ### Code-Split Bundle Profile (`web/dist/assets`)
 

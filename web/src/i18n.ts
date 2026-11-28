@@ -89,7 +89,7 @@ export interface CopyDict {
 
 export const COPY: Record<Locale, CopyDict> = {
   en: {
-    subtitle: 'DAYLIGHT ANALYTICS STUDIO · DATA QUALITY & DUCKDB-WASM LAKEHOUSE',
+    subtitle: 'GPU 100K OLAP EXPLORER · LASSO BRUSH-TO-SQL & MEDALLION CDC LAKEHOUSE',
     tabWorkbench: 'SQL Notebook',
     tabQuality: 'Data Quality',
     tabLineage: 'Schema Lineage',
@@ -140,7 +140,7 @@ export const COPY: Record<Locale, CopyDict> = {
     enterpriseLicenseBtn: 'Enterprise · 14.9M',
     enterpriseModalTitle: 'ENTERPRISE LAKEHOUSE COMMISSIONING',
     enterpriseModalSubtitle:
-      'Deploy NEXUS LAKE v5.0 Daylight Analytics Studio (Python FastAPI + DuckDB-WASM + Data Quality Contracts) inside your VPC with full source ownership, MCP Server & Principal Architect support.',
+      'Deploy NEXUS LAKE v6.0 GPU 100K-Row OLAP & Daylight Analytics Studio (Python FastAPI + DuckDB-WASM + Live Medallion CDC + Data Quality Contracts) inside your VPC with full source ownership, MCP Server & Principal Architect support.',
     nl2sqlTitle: 'NL-TO-SQL COPILOT (OFFLINE VI/EN)',
     nl2sqlPlaceholder:
       'Ask in English or Vietnamese: e.g. "Top 10 products by gross margin" or "Churned enterprise accounts > 50M VND"...',
@@ -176,7 +176,7 @@ export const COPY: Record<Locale, CopyDict> = {
     themeObsidian: 'Obsidian',
   },
   vi: {
-    subtitle: 'DAYLIGHT ANALYTICS STUDIO · HỢP ĐỒNG CHẤT LƯỢNG & DUCKDB-WASM',
+    subtitle: 'GPU 100K OLAP · LASSO BRUSH-TO-SQL & MEDALLION CDC LAKEHOUSE',
     tabWorkbench: 'Sổ Tay SQL',
     tabQuality: 'Chất Lượng Dữ Liệu',
     tabLineage: 'Lineage & ERD',
@@ -227,7 +227,7 @@ export const COPY: Record<Locale, CopyDict> = {
     enterpriseLicenseBtn: 'Bản Quyền · 14.9M',
     enterpriseModalTitle: 'TRIỂN KHAI BẢN QUYỀN DOANH NGHIỆP',
     enterpriseModalSubtitle:
-      'Sở hữu trọn bộ mã nguồn NEXUS LAKE v5.0 Full-Stack (Python FastAPI + DuckDB-WASM + Hợp đồng Chất lượng dbt) triển khai nội bộ VPC cùng MCP Server & hỗ trợ Solution Architect.',
+      'Sở hữu trọn bộ mã nguồn NEXUS LAKE v6.0 Full-Stack (GPU 100K OLAP + Python FastAPI + DuckDB-WASM + Live Medallion CDC + dbt-test) triển khai nội bộ VPC cùng MCP Server & hỗ trợ Solution Architect.',
     nl2sqlTitle: 'TRỢ LÝ NL-TO-SQL OFFLINE (VI/EN)',
     nl2sqlPlaceholder:
       'Nhập câu hỏi Tiếng Việt/Anh: vd "Top 10 sản phẩm biên lợi nhuận cao nhất" hoặc "Tài khoản doanh nghiệp rời bỏ > 50 triệu VND"...',

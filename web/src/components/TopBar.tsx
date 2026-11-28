@@ -130,7 +130,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 data-testid="version-badge"
                 className="inline-block font-mono-tech text-[9.5px] px-1.5 py-0.5 rounded-full bg-[var(--accent-signal-soft)] text-[var(--accent-signal)] border border-[var(--accent-signal)]/30 whitespace-nowrap font-semibold"
               >
-                v5.0
+                v6.0
               </span>
             </div>
             <p className="hidden 2xl:block text-[9px] font-mono-tech tracking-wider text-[var(--text-muted)] mt-0.5 m-0">

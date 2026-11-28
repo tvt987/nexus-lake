@@ -52,9 +52,16 @@ import { TopBar } from './components/TopBar';
 import { SidebarCatalog } from './components/SidebarCatalog';
 import { NlToSqlBar } from './components/NlToSqlBar';
 import { SqlNotebookPanel } from './components/SqlNotebookPanel';
-import { WebGpuAnomalyCanvas } from './components/WebGpuAnomalyCanvas';
 import { CdcLiveStrip } from './components/CdcLiveStrip';
 import { CommandPalette } from './components/CommandPalette';
+
+const InteractiveOlapStage = lazy(() =>
+  import('./components/InteractiveOlapStage').then((m) => ({ default: m.InteractiveOlapStage })),
+);
+
+const WebGpuAnomalyCanvas = lazy(() =>
+  import('./components/WebGpuAnomalyCanvas').then((m) => ({ default: m.WebGpuAnomalyCanvas })),
+);
 
 const AguiCopilotDock = lazy(() =>
   import('./components/AguiCopilotDock').then((m) => ({ default: m.AguiCopilotDock })),
@@ -462,7 +469,7 @@ export function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `nexus-lake-v5-snapshot-${Date.now()}.json`;
+    a.download = `nexus-lake-v6-snapshot-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }, [activeBrushBounds, cdcTelemetry, engineBackend, queryHistory]);
@@ -780,7 +787,7 @@ export function App() {
         onOpenEnterpriseLicense={() => setLicenseOpen(true)}
       />
 
-      <div className="flex-1 flex flex-col lg:flex-row min-h-0">
+      <div className="flex-1 flex flex-col-reverse lg:flex-row min-h-0">
         <SidebarCatalog
           copy={copy}
           tables={tables}
@@ -808,9 +815,27 @@ export function App() {
           onClearStorage={() => void handleClearStorage()}
         />
 
-        <main className="flex-1 min-w-0 p-4 sm:p-5 lg:p-6 overflow-y-auto nexus-grid-bg space-y-5">
+        <main className="flex-1 min-w-0 p-3 sm:p-4 lg:p-4 overflow-y-auto nexus-grid-bg space-y-4">
           {activeTab === 'workbench' && (
             <>
+              {/* v6.0 Flagship Primary Hero: 60fps 100K-Row GPU OLAP Anomaly Explorer, Direct Lasso Brush-to-SQL, 3D Cube & Live Medallion CDC */}
+              <Suspense
+                fallback={
+                  <div className="nexus-panel rounded-lg h-[560px] bg-[#070C18] flex items-center justify-center font-mono-tech text-xs text-slate-400">
+                    Booting 100K-Row GPU OLAP Stage &amp; Streaming Medallion Pipeline...
+                  </div>
+                }
+              >
+                <InteractiveOlapStage
+                  locale={locale}
+                  theme={theme}
+                  rowScale={rowScale}
+                  onRunSqlInNotebook={(brushSql, title) => {
+                    void handleRunOnActiveCell(brushSql, 'brush', title, 'grid');
+                  }}
+                />
+              </Suspense>
+
               {(cdcTelemetry.isStreaming || cdcTelemetry.batchCount > 0) && (
                 <CdcLiveStrip
                   copy={copy}
@@ -877,13 +902,15 @@ export function App() {
                 </div>
 
                 <div className="xl:col-span-5 min-w-0 space-y-4">
-                  <WebGpuAnomalyCanvas
-                    copy={copy}
-                    dataset={dataset}
-                    theme={theme}
-                    onApplyBrushSql={handleApplyBrushSql}
-                    onBrushChange={setActiveBrushBounds}
-                  />
+                  <Suspense fallback={<LazyViewFallback label="WebGPU WGSL Anomaly Inspector" />}>
+                    <WebGpuAnomalyCanvas
+                      copy={copy}
+                      dataset={dataset}
+                      theme={theme}
+                      onApplyBrushSql={handleApplyBrushSql}
+                      onBrushChange={setActiveBrushBounds}
+                    />
+                  </Suspense>
                   <Suspense fallback={<LazyViewFallback label="Cohort Retention Heatmap" />}>
                     <CohortHeatmapPanel
                       copy={copy}

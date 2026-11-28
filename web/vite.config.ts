@@ -74,7 +74,8 @@ export default defineConfig({
           }
           if (
             (normalized.includes('/src/engine/') || normalized.includes('/src/engines/')) &&
-            !normalized.includes('dataQualityEngine')
+            !normalized.includes('dataQualityEngine') &&
+            !normalized.includes('olapBrushPipelineEngine')
           ) {
             return 'engines';
           }

@@ -178,6 +178,78 @@ export function runFallbackSql(
 
   const n = dataset.rowCount;
 
+  // v6.0 Lasso Brush-to-SQL filtered regional rollup over gold_transactions
+  if (
+    upper.includes('GOLD_TRANSACTIONS') &&
+    upper.includes('GROUP BY REGION') &&
+    upper.includes('BETWEEN')
+  ) {
+    const latBetween = clean.match(/latency_ms\s+BETWEEN\s+(\d+(?:\.\d+)?)\s+AND\s+(\d+(?:\.\d+)?)/i);
+    const revBetween = clean.match(
+      /(?:revenue_usd|amount_usd)\s+BETWEEN\s+(\d+(?:\.\d+)?)\s+AND\s+(\d+(?:\.\d+)?)/i,
+    );
+    const regIn = clean.match(/region\s+IN\s*\(([^)]+)\)/i);
+    const regSet = regIn
+      ? new Set(
+          regIn[1]
+            .split(',')
+            .map((s) => s.trim().replace(/^'|'$/g, ''))
+            .filter(Boolean),
+        )
+      : null;
+
+    const latMin = latBetween ? Number(latBetween[1]) : -Infinity;
+    const latMax = latBetween ? Number(latBetween[2]) : Infinity;
+    const revMin = revBetween ? Number(revBetween[1]) : -Infinity;
+    const revMax = revBetween ? Number(revBetween[2]) : Infinity;
+
+    const buckets = REGIONS.map((region) => ({
+      region,
+      tx_cnt: 0,
+      rev_sum: 0,
+      latencies: [] as number[],
+    }));
+
+    for (let i = 0; i < n; i += 1) {
+      const rIdx = dataset.regionIdx[i];
+      if (regSet && !regSet.has(REGIONS[rIdx])) continue;
+      const lat = dataset.latencyMs[i];
+      if (lat < latMin || lat > latMax) continue;
+      const rev = dataset.amountUsd[i];
+      if (rev < revMin || rev > revMax) continue;
+      const b = buckets[rIdx];
+      b.tx_cnt += 1;
+      b.rev_sum += rev;
+      b.latencies.push(lat);
+    }
+
+    const rows = buckets
+      .filter((b) => b.tx_cnt > 0)
+      .map((b) => {
+        b.latencies.sort((a, c) => a - c);
+        const p99 = b.latencies[Math.min(b.latencies.length - 1, Math.floor(b.latencies.length * 0.99))] ?? 0;
+        return {
+          region: b.region,
+          tx_cnt: b.tx_cnt,
+          avg_rev: Number((b.rev_sum / b.tx_cnt).toFixed(2)),
+          p99_ms: Number(p99.toFixed(1)),
+        };
+      })
+      .sort((a, b) => b.tx_cnt - a.tx_cnt);
+
+    const elapsed = Math.max(0.2, performance.now() - start);
+    return {
+      columns: ['region', 'tx_cnt', 'avg_rev', 'p99_ms'],
+      rows,
+      rowCount: rows.length,
+      scannedRows: n,
+      executionMs: Number(elapsed.toFixed(2)),
+      rowsPerSec: Math.round((n / elapsed) * 1000),
+      engine: 'FALLBACK-OLAP',
+      sql,
+    };
+  }
+
   // Regional revenue rollup / GROUP BY region
   if (upper.includes('GROUP BY REGION') && !upper.includes('CATEGORY')) {
     const stats = REGIONS.map((region) => ({
@@ -576,7 +648,9 @@ export class NexusDuckDbEngine {
 
     if (this.backend === 'DUCKDB-WASM' && this.conn) {
       const ipcBytes = buildArrowIpcFromTransactions(data);
-      await this.conn.query('DROP TABLE IF EXISTS transactions_raw; DROP TABLE IF EXISTS transactions;');
+      await this.conn.query(
+        'DROP VIEW IF EXISTS gold_transactions; DROP TABLE IF EXISTS transactions_raw; DROP TABLE IF EXISTS transactions;',
+      );
       await this.conn.insertArrowFromIPCStream(ipcBytes, {
         name: 'transactions_raw',
         create: true,
@@ -597,6 +671,22 @@ export class NexusDuckDbEngine {
           x_coord,
           y_coord
         FROM transactions_raw;
+        CREATE OR REPLACE VIEW gold_transactions AS
+        SELECT
+          tx_id,
+          ts,
+          store_id,
+          region,
+          category,
+          amount_usd AS revenue_usd,
+          amount_usd,
+          risk_score,
+          latency_ms,
+          voucher_code,
+          is_anomaly,
+          x_coord,
+          y_coord
+        FROM transactions;
         DROP TABLE transactions_raw;
       `);
     }
